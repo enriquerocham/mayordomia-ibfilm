@@ -1191,9 +1191,28 @@ function cfgPriv(val) {
    STORAGE HELPERS
 ══════════════════════════════════════════ */
 function loadMov() { try { return JSON.parse(localStorage.getItem(K_MOV) || '[]'); } catch { return []; } }
-function saveMov(d) { localStorage.setItem(K_MOV, JSON.stringify(d)); updateHeaderStats(); }
+function saveMov(d) {
+  localStorage.setItem(K_MOV, JSON.stringify(d));
+  updateHeaderStats();
+  // Sync con Firebase (cada movimiento nuevo)
+  if (typeof window.fbSaveMov === 'function') {
+    const prev = JSON.parse(localStorage.getItem('_last_mov_count') || '0');
+    if (d.length > prev) {
+      const newest = d[d.length - 1];
+      window.fbSaveMov(newest);
+      localStorage.setItem('_last_mov_count', d.length);
+    }
+  }
+}
 function loadMem() { try { return JSON.parse(localStorage.getItem(K_MEM) || '[]'); } catch { return []; } }
-function saveMem(d) { localStorage.setItem(K_MEM, JSON.stringify(d)); }
+function saveMem(d) {
+  localStorage.setItem(K_MEM, JSON.stringify(d));
+  // Sync con Firebase
+  if (typeof window.fbSaveMem === 'function' && d.length > 0) {
+    const last = d[d.length - 1];
+    window.fbSaveMem(last);
+  }
+}
 
 /* ══════════════════════════════════════════
    TOAST
@@ -1321,9 +1340,7 @@ function catColor(cat) {
 /* ══════════════════════════════════════════
    AUTOCOMPLETE
 ══════════════════════════════════════════ */
-/* Resultados temporales para autocomplete (evita JSON en onclick) */
 let _acCache = {};
-
 function acSearch(q, prefix) {
   const mem  = loadMem().filter(m => m.estatus !== 'Inactivo');
   const list = document.getElementById('ac-' + prefix);
@@ -1342,40 +1359,32 @@ function acSearch(q, prefix) {
         <div class="ac-sub">${m.grupo || ''} · ${m.estatus}</div>
       </div>
     </div>`).join('');
-  // Agregar listeners de click en cada item
   list.querySelectorAll('.ac-item[data-ac-idx]').forEach(el => {
-    el.addEventListener('mousedown', e => { e.preventDefault(); });
+    el.addEventListener('mousedown', e => e.preventDefault());
     el.addEventListener('click', e => {
       e.stopPropagation();
-      const idx = parseInt(el.dataset.acIdx);
-      const pfx = el.dataset.acPrefix;
-      const mem = _acCache[pfx];
-      if (mem && mem[idx]) acSelect(mem[idx], pfx);
+      const m = (_acCache[el.dataset.acPrefix]||[])[parseInt(el.dataset.acIdx)];
+      if (m) acSelect(m, el.dataset.acPrefix);
     });
   });
   list.classList.add('open');
 }
 
 function acSelect(m, prefix) {
-  // Cerrar dropdown y limpiar búsqueda
   const list = document.getElementById('ac-' + prefix);
   if (list) list.classList.remove('open');
   const searchEl = document.getElementById(prefix + '-search');
   if (searchEl) searchEl.value = '';
-
   if (prefix === 'rr') {
     rrMiembro = { tipo: 'miembro', id: m.id, nombre: m.nombre };
-    showChip(m.nombre, (m.grupo || '') + ' · ' + m.estatus, avatarColor(m.nombre), 'rr');
+    showChip(m.nombre, (m.grupo||'') + ' · ' + m.estatus, avatarColor(m.nombre), 'rr');
     document.querySelectorAll('.toggle-btn[data-quick]').forEach(b => b.classList.remove('sel'));
-    const otro = document.getElementById('rr-otro-inp');
-    if (otro) otro.style.display = 'none';
+    const oi = document.getElementById('rr-otro-inp'); if(oi) oi.style.display = 'none';
   }
-
   if (prefix === 'pp') {
     ppMiembro = { id: m.id, nombre: m.nombre };
-    const manual = document.getElementById('pp-nombre-manual');
-    if (manual) manual.value = '';
-    showChip(m.nombre, (m.grupo || '') + ' · ' + m.estatus, avatarColor(m.nombre), 'pp');
+    const mn = document.getElementById('pp-nombre-manual'); if(mn) mn.value = '';
+    showChip(m.nombre, (m.grupo||'') + ' · ' + m.estatus, avatarColor(m.nombre), 'pp');
   }
 }
 
@@ -2949,6 +2958,7 @@ function cierreGuardar() {
     </div>
   </div>
   <div id="header-today"></div>
+  <div id="sync-status" style="font-size:.65rem;color:var(--gold-lt);white-space:nowrap;"></div>
 </header>
 
 <!-- ══════════ SIDEBAR (desktop) ══════════ -->
@@ -3336,7 +3346,8 @@ function cierreGuardar() {
       </div>
     </div>
 
-    <button class="btn btn-danger btn-block" style="margin-top:14px;" onclick="borrarTodo()">🗑️ Borrar todos los datos</button>
+    <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="fbUploadAll()">☁️ Subir todos los datos a Firebase</button>
+    <button class="btn btn-danger btn-block" style="margin-top:10px;" onclick="borrarTodo()">🗑️ Borrar todos los datos</button>
   </main>
 
   <!-- ── CONFIGURACIÓN ── -->
@@ -3759,6 +3770,15 @@ let promEventoActual = null;  // id del evento abierto
 let paMetodo = 'Efectivo';
 let ppMiembro = null;  // miembro seleccionado en modal participante
 
+/* ── FIREBASE UPLOAD ALL ── */
+function fbUploadAll() {
+  if (typeof window.fbUploadLocal === 'function') {
+    window.fbUploadLocal();
+  } else {
+    toast('Conectando con Firebase...', 'warn');
+  }
+}
+
 /* ── INIT ── */
 function initPromesas() {
   promEventoActual = null;
@@ -4169,7 +4189,7 @@ function promGuardarAbono() {
   toast('Pago de ' + fmt(monto) + ' registrado');
 }
 
-/* ── pp prefix manejado en acSelect unificado arriba ── */
+/* pp manejado en acSelect unificado */
 
 /* ── EXPORTAR CSV DEL EVENTO ── */
 function promExportCSV() {
@@ -4187,5 +4207,128 @@ function promExportCSV() {
 }
 </script>
 
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
+      authDomain: "mayordomia-ibfilm.firebaseapp.com",
+      projectId: "mayordomia-ibfilm",
+      storageBucket: "mayordomia-ibfilm.firebasestorage.app",
+      messagingSenderId: "460839237215",
+      appId: "1:460839237215:web:82418bf1627eb9c40a8dea"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    // ── Colecciones ──
+    const COL_MOV = 'movimientos';
+    const COL_MEM = 'miembros';
+    const COL_EV  = 'eventos';
+
+    // ── Sync status indicator ──
+    function setSyncStatus(ok, msg) {
+      const el = document.getElementById('sync-status');
+      if (el) {
+        el.textContent = ok ? '☁️ ' + msg : '⚠️ ' + msg;
+        el.style.color = ok ? '#1d7a4e' : '#d97706';
+      }
+    }
+
+    // ── GUARDAR movimiento en Firestore ──
+    window.fbSaveMov = async function(m) {
+      try {
+        await setDoc(doc(db, COL_MOV, m.id), m);
+        setSyncStatus(true, 'Sincronizado');
+      } catch(e) { setSyncStatus(false, 'Sin conexión — guardado local'); }
+    };
+
+    // ── ELIMINAR movimiento ──
+    window.fbDelMov = async function(id) {
+      try { await deleteDoc(doc(db, COL_MOV, id)); } catch(e) {}
+    };
+
+    // ── GUARDAR miembro ──
+    window.fbSaveMem = async function(m) {
+      try { await setDoc(doc(db, COL_MEM, m.id), m); } catch(e) {}
+    };
+
+    // ── ELIMINAR miembro ──
+    window.fbDelMem = async function(id) {
+      try { await deleteDoc(doc(db, COL_MEM, id)); } catch(e) {}
+    };
+
+    // ── GUARDAR evento ──
+    window.fbSaveEv = async function(ev) {
+      try { await setDoc(doc(db, COL_EV, ev.id), ev); } catch(e) {}
+    };
+
+    // ── ELIMINAR evento ──
+    window.fbDelEv = async function(id) {
+      try { await deleteDoc(doc(db, COL_EV, id)); } catch(e) {}
+    };
+
+    // ── SYNC INICIAL: bajar datos de Firestore a localStorage ──
+    async function syncFromCloud() {
+      setSyncStatus(true, 'Sincronizando...');
+      try {
+        // Movimientos
+        const movSnap = await getDocs(collection(db, COL_MOV));
+        const movs = [];
+        movSnap.forEach(d => movs.push(d.data()));
+        if (movs.length > 0) {
+          localStorage.setItem('ibfilm_movimientos_v2', JSON.stringify(movs));
+        }
+        // Miembros
+        const memSnap = await getDocs(collection(db, COL_MEM));
+        const mems = [];
+        memSnap.forEach(d => mems.push(d.data()));
+        if (mems.length > 0) {
+          localStorage.setItem('ibfilm_miembros_v1', JSON.stringify(mems));
+        }
+        // Eventos
+        const evSnap = await getDocs(collection(db, COL_EV));
+        const evs = [];
+        evSnap.forEach(d => evs.push(d.data()));
+        if (evs.length > 0) {
+          localStorage.setItem('ibfilm_promesas_v1', JSON.stringify(evs));
+        }
+        setSyncStatus(true, 'Todo sincronizado');
+        // Refrescar la vista actual
+        if (typeof renderDash === 'function') renderDash();
+      } catch(e) {
+        setSyncStatus(false, 'Sin conexión — usando datos locales');
+      }
+    }
+
+    // ── SUBIR datos locales a Firestore (primera vez) ──
+    window.fbUploadLocal = async function() {
+      setSyncStatus(true, 'Subiendo datos...');
+      try {
+        const batch = writeBatch(db);
+        const movs = JSON.parse(localStorage.getItem('ibfilm_movimientos_v2') || '[]');
+        const mems = JSON.parse(localStorage.getItem('ibfilm_miembros_v1') || '[]');
+        const evs  = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]');
+        movs.forEach(m => batch.set(doc(db, COL_MOV, m.id), m));
+        mems.forEach(m => batch.set(doc(db, COL_MEM, m.id), m));
+        evs.forEach(e => batch.set(doc(db, COL_EV, e.id), e));
+        await batch.commit();
+        setSyncStatus(true, 'Datos subidos correctamente');
+        if (typeof toast === 'function') toast('☁️ Datos sincronizados con Firebase');
+      } catch(e) {
+        setSyncStatus(false, 'Error al subir: ' + e.message);
+        if (typeof toast === 'function') toast('⚠️ Sin conexión — datos guardados localmente', 'warn');
+      }
+    };
+
+    // ── Iniciar sincronización al cargar ──
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(syncFromCloud, 1500);
+    });
+  </script>
 </body>
 </html>
