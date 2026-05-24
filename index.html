@@ -1255,7 +1255,7 @@ function nav(id) {
   if (id === 'reportes')     initRepGeneral();
   if (id === 'respaldo')     updateBackupStats();
   if (id === 'config')       applyConfig();
-  if (id === 'colecta')      initColecta();
+  if (id === 'colecta')      initOfrenda();
   if (id === 'cierre')       initCierre();
   if (id === 'promesas')     initPromesas();
 
@@ -1306,11 +1306,17 @@ function renderDash() {
   setText('dash-bal-hoy',   fmt(ingH - egrH));
   setText('dash-count-hoy', cntH);
 
-  // Saldo por concepto/categoría (solo los que tienen saldo > 0)
+  // Saldo por concepto/categoría agrupado (solo los que tienen saldo > 0)
   const porCat = {};
+  const LABEL_MISIONERA = 'Ofrenda Misionera 25-26';
   mov.filter(m => m.tipo === 'Ingreso').forEach(m => {
-    // Usar concepto si es más descriptivo que la categoría
-    const cat = (m.concepto && m.concepto !== m.categoria) ? m.concepto : (m.categoria || m.concepto || 'Otros');
+    let cat = (m.concepto && m.concepto !== m.categoria)
+      ? m.concepto
+      : (m.categoria || m.concepto || 'Otros');
+    // Solo agrupar "Misiones" legacy con "Ofrenda Misionera 25-26"
+    if (cat === 'Misiones') {
+      cat = LABEL_MISIONERA;
+    }
     porCat[cat] = (porCat[cat] || 0) + m.monto;
   });
   const catRows = Object.entries(porCat)
@@ -1830,7 +1836,7 @@ function openEditMov(id) {
   editMovId = id;
   const isIng = m.tipo === 'Ingreso';
   const cats  = isIng
-    ? ['Diezmo','Ofrenda general','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros']
+    ? ['Ofrenda Misionera 25-26','Diezmo','Ofrenda general','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros']
     : ['Servicios','Renta','Mantenimiento','Compras','Ministerio de jóvenes','Ministerio infantil','Misiones','Apoyo pastoral','Ayuda social','Papelería','Transporte','Construcción','Limpieza','Equipo de sonido','Otros'];
   const mets = isIng ? ['Efectivo','Transferencia','Depósito','Otro'] : ['Efectivo','Transferencia','Tarjeta','Depósito','Otro'];
   document.getElementById('modal-mov-form').innerHTML = `
@@ -3437,58 +3443,77 @@ function cierreGuardar() {
 
   <!-- ── COLECTA MISIONERA ── -->
   <main class="page" id="pg-colecta">
-    <div class="print-header">
-      <h1 id="print-colecta-app">Mayordomía IBFILM</h1>
-      <p>Reporte de Ofrenda Misionera 2025-2026</p>
-      <p id="print-colecta-fecha"></p>
+
+    <!-- VISTA: Lista de ciclos -->
+    <div id="om-vista-lista">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div class="page-title">🌍 Ofrenda Misionera</div>
+        <button class="btn btn-primary btn-sm" onclick="omNuevoCiclo()">+ Nuevo ciclo</button>
+      </div>
+      <div class="page-sub">Selecciona un ciclo para registrar ofrendas</div>
+      <div id="om-ciclos-lista"></div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;" class="no-print">
-      <div class="page-title">🌍 Ofrenda Misionera 25-26</div>
-      <button class="btn btn-ghost btn-sm no-print" onclick="window.print()">🖨️</button>
-    </div>
-    <div class="page-sub no-print">Toca el nombre del hermano cuando entregue su ofrenda misionera</div>
+    <!-- VISTA: Detalle de un ciclo -->
+    <div id="om-vista-detalle" style="display:none;">
+      <div class="print-header">
+        <h1>Mayordomía IBFILM</h1>
+        <p>Ofrenda Misionera</p>
+        <p id="om-print-ciclo"></p>
+      </div>
 
-    <!-- Fecha y controles -->
-    <div class="card no-print" style="margin-bottom:12px;">
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="form-group" style="flex:1;min-width:150px;margin-bottom:0;">
-          <label class="form-label">Fecha del culto</label>
-          <input type="date" id="col-fecha" class="form-control" onchange="renderColecta()">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;" class="no-print">
+        <button class="btn btn-ghost btn-sm" onclick="omVolverLista()">← Volver</button>
+        <div style="flex:1;">
+          <div class="page-title" id="om-det-titulo" style="margin-bottom:0;font-size:1.1rem;"></div>
+          <div class="page-sub" id="om-det-sub" style="margin-bottom:0;"></div>
         </div>
-        <div class="form-group" style="min-width:140px;margin-bottom:0;">
-          <label class="form-label">Frecuencia</label>
-          <div style="display:flex;gap:6px;">
-            <button class="toggle-btn sel" id="col-freq-sem"  onclick="colSetFreq('semanal')">Semanal</button>
-            <button class="toggle-btn"     id="col-freq-quin" onclick="colSetFreq('quincenal')">Quincenal</button>
+        <button class="btn btn-ghost btn-sm no-print" onclick="window.print()">🖨️</button>
+      </div>
+
+      <!-- Controles -->
+      <div class="card no-print" style="margin-bottom:12px;">
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="fg" style="flex:1;min-width:150px;margin-bottom:0;">
+            <label class="fl">Fecha del culto</label>
+            <input type="date" id="om-fecha" class="fc" onchange="omRenderDetalle()">
           </div>
+          <div class="fg" style="margin-bottom:0;">
+            <label class="fl">Frecuencia</label>
+            <div style="display:flex;gap:6px;">
+              <button class="tbtn on" id="om-f-sem"  onclick="omSetFreq('semanal',this)">Semanal</button>
+              <button class="tbtn"    id="om-f-quin" onclick="omSetFreq('quincenal',this)">Quincenal</button>
+            </div>
+          </div>
+          <button class="btn btn-danger btn-sm no-print" onclick="omGuardarColecta()" style="align-self:flex-end;">
+            💾 Guardar colecta
+          </button>
         </div>
-        <button class="btn btn-danger btn-sm no-print" onclick="colGuardarTodo()" id="btn-col-guardar" style="align-self:flex-end;">
-          💾 Guardar colecta
+      </div>
+
+      <!-- Resumen -->
+      <div id="om-resumen" style="margin-bottom:8px;"></div>
+      <div class="prog" style="margin-bottom:12px;">
+        <div class="progf" id="om-prog" style="width:0%"></div>
+      </div>
+
+      <!-- Lista de hermanos -->
+      <div class="stitle" style="margin-top:4px;">Hermanos</div>
+      <div id="om-lista-sem"></div>
+      <div id="om-lista-quin"></div>
+
+      <!-- Otros aportantes -->
+      <div class="card no-print" style="margin-top:4px;">
+        <div class="stitle" style="margin:0 0 8px;">Otros aportantes</div>
+        <div id="om-extras"></div>
+        <button class="btn btn-ghost btn-sm btn-w" onclick="openM('m-om-extra')" style="margin-top:10px;">
+          + Agregar visitante / otro
         </button>
       </div>
     </div>
-
-    <!-- Resumen en tiempo real -->
-    <div id="col-resumen" style="margin-bottom:12px;"></div>
-
-    <!-- Lista semanal -->
-    <div id="col-lista-semanal"></div>
-
-    <!-- Lista quincenal (oculta si freq=semanal) -->
-    <div id="col-lista-quincenal"></div>
-
-    <!-- Visitante / otro -->
-    <div class="card no-print" id="col-extra-card" style="margin-top:4px;">
-      <div class="section-title" style="margin-top:0;">Otros aportantes</div>
-      <div id="col-extras-list"></div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%;" onclick="colAgregarExtra()">
-        + Agregar visitante u otro aportante
-      </button>
-    </div>
   </main>
 
-  <!-- ── CIERRE DE CULTO ── -->
+
   <main class="page" id="pg-cierre">
     <div class="page-title">🏦 Cierre de Culto</div>
     <div class="page-sub">Registra los totales del conteo físico al finalizar</div>
@@ -4297,6 +4322,7 @@ function promExportCSV() {
     };
 
     // ── GUARDAR evento ──
+    const COL_OM  = 'om_ciclos';
     window.fbSaveEv = async function(ev) {
       try { await setDoc(doc(db, COL_EV, ev.id), ev); } catch(e) {}
     };
@@ -4304,6 +4330,9 @@ function promExportCSV() {
     // ── ELIMINAR evento ──
     window.fbDelEv = async function(id) {
       try { await deleteDoc(doc(db, COL_EV, id)); } catch(e) {}
+    };
+    window.fbSaveOM = async function(ciclo) {
+      try { await setDoc(doc(db, COL_OM, ciclo.id), ciclo); } catch(e) {}
     };
 
     // ── SYNC INICIAL: bajar datos de Firestore a localStorage ──
@@ -4357,6 +4386,13 @@ function promExportCSV() {
           // Subir versión merged a Firebase
           merged.forEach(ev => { if(window.fbSaveEv) window.fbSaveEv(ev); });
         }
+        // Ciclos de Ofrenda Misionera
+        const omSnap = await getDocs(collection(db, COL_OM));
+        const omCiclos = [];
+        omSnap.forEach(d => omCiclos.push(d.data()));
+        if (omCiclos.length > 0) {
+          localStorage.setItem('ibfilm_om_ciclos_v1', JSON.stringify(omCiclos));
+        }
         setSyncStatus(true, 'Todo sincronizado');
         // Refrescar la vista actual
         if (typeof renderDash === 'function') renderDash();
@@ -4390,5 +4426,475 @@ function promExportCSV() {
       setTimeout(syncFromCloud, 1500);
     });
   </script>
+
+<!-- MODAL: NUEVO CICLO -->
+<div class="mbg" id="m-om-ciclo">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3 id="m-om-ciclo-title">Nuevo ciclo misionero</h3>
+    <div class="fg">
+      <label class="fl">Nombre del ciclo</label>
+      <input type="text" id="omc-nombre" class="fc" placeholder="Ej: 2025-2026, 2026-2027">
+    </div>
+    <div class="fg">
+      <label class="fl">Fecha de inicio</label>
+      <input type="date" id="omc-inicio" class="fc">
+    </div>
+    <div class="fg">
+      <label class="fl">Fecha de cierre <span>(opcional)</span></label>
+      <input type="date" id="omc-fin" class="fc">
+    </div>
+    <div class="fg">
+      <label class="fl">Estado</label>
+      <div class="tgrp" id="omc-estado">
+        <button class="tbtn on" data-v="activo"   onclick="selMet(this,'omc-estado')">✅ Activo</button>
+        <button class="tbtn"    data-v="cerrado"  onclick="selMet(this,'omc-estado')">🔒 Cerrado</button>
+      </div>
+    </div>
+    <input type="hidden" id="omc-id">
+    <div class="mac2">
+      <button class="btn btn-g" onclick="closeM('m-om-ciclo')">Cancelar</button>
+      <button class="btn btn-p" onclick="omGuardarCiclo()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: AJUSTE MONTO OFRENDA MISIONERA -->
+<div class="mbg" id="m-om-ajuste">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3 id="m-om-ajuste-title">Ajustar monto</h3>
+    <div class="fg">
+      <label class="fl">Monto recibido ($)</label>
+      <input type="number" id="om-aj-monto" class="fc" inputmode="decimal" step="0.01" min="0"
+        style="font-size:1.6rem;font-family:var(--mono);font-weight:800;text-align:right;">
+    </div>
+    <div class="fg">
+      <label class="fl">Observaciones <span>(opcional)</span></label>
+      <input type="text" id="om-aj-obs" class="fc" placeholder="Nota…">
+    </div>
+    <input type="hidden" id="om-aj-nombre">
+    <input type="hidden" id="om-aj-promesa">
+    <div class="mac2">
+      <button class="btn btn-g" onclick="closeM('m-om-ajuste')">Cancelar</button>
+      <button class="btn btn-s" onclick="omConfirmarAjuste()">✅ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EXTRA OFRENDA MISIONERA -->
+<div class="mbg" id="m-om-extra">
+  <div class="modal">
+    <div class="mh"></div>
+    <h3>Agregar aportante</h3>
+    <div class="fg">
+      <label class="fl">Nombre</label>
+      <div class="tgrp" style="margin-bottom:8px;">
+        <button class="tbtn" onclick="document.getElementById('om-ex-nombre').value='Anónimo'">👤 Anónimo</button>
+        <button class="tbtn" onclick="document.getElementById('om-ex-nombre').value='Visitante'">🙋 Visitante</button>
+      </div>
+      <input type="text" id="om-ex-nombre" class="fc" placeholder="O escribe el nombre…">
+    </div>
+    <div class="fg">
+      <label class="fl">Monto ($)</label>
+      <input type="number" id="om-ex-monto" class="fc" placeholder="0.00"
+        inputmode="decimal" step="0.01" min="0.01"
+        style="font-size:1.2rem;font-family:var(--mono);font-weight:700;text-align:right;">
+    </div>
+    <div class="fg">
+      <label class="fl">Observaciones <span>(opcional)</span></label>
+      <input type="text" id="om-ex-obs" class="fc" placeholder="Nota…">
+    </div>
+    <div class="mac2">
+      <button class="btn btn-g" onclick="closeM('m-om-extra')">Cancelar</button>
+      <button class="btn btn-s" onclick="omGuardarExtra()">✅ Agregar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
+
+/* ═══════════════════════════════════════════════════
+   MÓDULO: OFRENDA MISIONERA (con ciclos)
+   Cada ciclo tiene su lista de hermanos semanales/
+   quincenales. Se selecciona el ciclo activo.
+═══════════════════════════════════════════════════ */
+
+const K_OM = 'ibfilm_om_ciclos_v1';
+
+/* ── Listas fijas de hermanos ── */
+const PSEM = [
+  {n:'Pr. Moisés',p:250},{n:'Mary',p:220},{n:'Yaretzi',p:150},{n:'Leila',p:50},
+  {n:'Isaí',p:50},{n:'Junior',p:100},{n:'Jazive',p:100},{n:'Santos',p:150},
+  {n:'Cresencio',p:100},{n:'Martha',p:250},{n:'Yareli',p:150},{n:'Elvira',p:200},
+  {n:'Robert',p:150},{n:'Verónica',p:150},{n:'Javier',p:150},{n:'Daniela',p:120},
+  {n:'Maximina',p:200},{n:'Roberto',p:25},{n:'América',p:25},{n:'Alan',p:50},
+  {n:'Abdiel',p:20},{n:'Guillermo',p:150},{n:'Lourdes',p:50},{n:'Amairani',p:10},{n:'Martha M.',p:100}
+];
+const PQUIN = [
+  {n:'Enrique',p:200},{n:'Fernanda',p:200},{n:'Daniel',p:150},{n:'Sofía',p:70},
+  {n:'Cecilia',p:250},{n:'Josué',p:300},{n:'Brenda',p:100},{n:'Elisa',p:250},{n:'Juanita',p:100}
+];
+
+/* ── Estado del ciclo en curso ── */
+let omCicloActual = null;  // id del ciclo abierto
+let omEstado = {};         // {nombre: {est, monto, obs}}
+let omFreq = 'semanal';
+let omExtras = [];
+let omAjusteNombre = '';
+
+/* ── Storage ── */
+function loadOM()  { try { return JSON.parse(localStorage.getItem(K_OM)||'[]'); } catch { return []; } }
+function saveOM(d) {
+  localStorage.setItem(K_OM, JSON.stringify(d));
+  // Sync ciclos con Firebase
+  if (typeof window.fbSaveOM === 'function') d.forEach(ev => window.fbSaveOM(ev));
+}
+
+/* ── INIT ── */
+function initOfrenda() {
+  omCicloActual = null;
+  document.getElementById('om-vista-lista').style.display = '';
+  document.getElementById('om-vista-detalle').style.display = 'none';
+  omRenderLista();
+}
+
+/* ── LISTA DE CICLOS ── */
+function omRenderLista() {
+  const ciclos = loadOM();
+  const el = document.getElementById('om-ciclos-lista');
+  if (!el) return;
+
+  // Si no hay ciclos, crear el 2025-2026 automáticamente
+  if (ciclos.length === 0) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--t3);">
+        <div style="font-size:2.5rem;opacity:.4;margin-bottom:12px;">🌍</div>
+        <p style="font-size:.9rem;">Sin ciclos registrados.</p>
+        <p style="font-size:.8rem;margin-top:4px;">Toca "+ Nuevo ciclo" para crear el primero.</p>
+        <button class="btn btn-p" style="margin-top:16px;" onclick="omCrearCicloDefault()">
+          Crear ciclo 2025-2026
+        </button>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = ciclos.map(ciclo => {
+    const movsCiclo = loadMov().filter(m =>
+      m.tipo === 'Ingreso' &&
+      (m.concepto === ciclo.nombre || m.categoria === ciclo.nombre)
+    );
+    const total = movsCiclo.reduce((s,m)=>s+m.monto,0);
+    const metaSem  = PSEM.reduce((s,m)=>s+m.p,0);
+    const metaQuin = PQUIN.reduce((s,m)=>s+m.p,0);
+    const activo = ciclo.estado === 'activo';
+
+    return `
+      <div class="card" style="margin-bottom:10px;cursor:pointer;border-left:4px solid ${activo?'var(--green)':'var(--t3)'};"
+           onclick="omAbrirCiclo('${ciclo.id}')">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-size:1.8rem;">🌍</div>
+          <div style="flex:1;">
+            <div style="font-weight:800;font-size:1rem;color:var(--navy);">
+              Ofrenda Misionera ${ciclo.nombre}
+            </div>
+            <div style="font-size:.75rem;color:var(--t3);margin-top:2px;">
+              ${ciclo.inicio ? 'Inicio: '+fdl(ciclo.inicio) : ''} 
+              ${ciclo.fin ? '· Cierre: '+fdl(ciclo.fin) : ''}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--mono);font-weight:800;font-size:1rem;color:var(--green);">${fmt(total)}</div>
+            <span class="badge ${activo?'bg':'bn'}" style="margin-top:4px;">${activo?'Activo':'Cerrado'}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;" onclick="event.stopPropagation()">
+          <button class="btn btn-g btn-xs" onclick="omEditarCiclo('${ciclo.id}')">✏️ Editar</button>
+          <button class="btn btn-g btn-xs" style="color:var(--red);" onclick="omEliminarCiclo('${ciclo.id}')">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function omCrearCicloDefault() {
+  const ciclos = loadOM();
+  ciclos.push({
+    id: uid(), nombre: '2025-2026',
+    inicio: '2025-08-01', fin: '2026-07-31',
+    estado: 'activo'
+  });
+  saveOM(ciclos);
+  omRenderLista();
+}
+
+/* ── CREAR / EDITAR CICLO ── */
+function omNuevoCiclo() {
+  ['omc-nombre','omc-inicio','omc-fin'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('omc-id').value = '';
+  document.getElementById('m-om-ciclo-title').textContent = 'Nuevo ciclo misionero';
+  document.querySelectorAll('#omc-estado .tbtn').forEach(b =>
+    b.classList.toggle('on', b.dataset.v === 'activo'));
+  openM('m-om-ciclo');
+}
+
+function omEditarCiclo(id) {
+  const ciclo = loadOM().find(c => c.id === id);
+  if (!ciclo) return;
+  document.getElementById('omc-nombre').value = ciclo.nombre || '';
+  document.getElementById('omc-inicio').value = ciclo.inicio || '';
+  document.getElementById('omc-fin').value    = ciclo.fin    || '';
+  document.getElementById('omc-id').value     = id;
+  document.getElementById('m-om-ciclo-title').textContent = 'Editar ciclo';
+  document.querySelectorAll('#omc-estado .tbtn').forEach(b =>
+    b.classList.toggle('on', b.dataset.v === (ciclo.estado||'activo')));
+  openM('m-om-ciclo');
+}
+
+function omGuardarCiclo() {
+  const nombre = document.getElementById('omc-nombre').value.trim();
+  if (!nombre) { toast('El nombre es obligatorio','w'); return; }
+  const editId = document.getElementById('omc-id').value;
+  const ciclos = loadOM();
+  const obj = {
+    nombre,
+    inicio:  document.getElementById('omc-inicio').value,
+    fin:     document.getElementById('omc-fin').value,
+    estado:  getSelMet('omc-estado') || 'activo'
+  };
+  if (editId) {
+    const i = ciclos.findIndex(c => c.id === editId);
+    if (i >= 0) Object.assign(ciclos[i], obj);
+  } else {
+    ciclos.push({ id: uid(), ...obj });
+  }
+  saveOM(ciclos);
+  closeM('m-om-ciclo');
+  omRenderLista();
+  toast(editId ? 'Ciclo actualizado' : 'Ciclo creado');
+}
+
+function omEliminarCiclo(id) {
+  const ciclo = loadOM().find(c => c.id === id);
+  if (!ciclo) return;
+  if (!confirm('¿Eliminar el ciclo "' + ciclo.nombre + '"?
+Los movimientos registrados NO se eliminarán.')) return;
+  saveOM(loadOM().filter(c => c.id !== id));
+  omRenderLista();
+  toast('Ciclo eliminado','w');
+}
+
+/* ── ABRIR CICLO ── */
+function omAbrirCiclo(id) {
+  omCicloActual = id;
+  omEstado = {}; omExtras = []; omFreq = 'semanal';
+  document.getElementById('om-vista-lista').style.display = 'none';
+  document.getElementById('om-vista-detalle').style.display = '';
+  const fe = document.getElementById('om-fecha');
+  if (!fe.value) fe.value = hoy();
+  document.getElementById('om-f-sem').classList.add('on');
+  document.getElementById('om-f-quin').classList.remove('on');
+  omRenderDetalle();
+}
+
+function omVolverLista() {
+  omCicloActual = null;
+  document.getElementById('om-vista-lista').style.display = '';
+  document.getElementById('om-vista-detalle').style.display = 'none';
+  omRenderLista();
+}
+
+/* ── DETALLE DEL CICLO ── */
+function omSetFreq(f, btn) {
+  omFreq = f;
+  document.getElementById('om-f-sem').classList.toggle('on',  f === 'semanal');
+  document.getElementById('om-f-quin').classList.toggle('on', f === 'quincenal');
+  omRenderDetalle();
+}
+
+function omRenderDetalle() {
+  const ciclo = loadOM().find(c => c.id === omCicloActual);
+  if (!ciclo) { omVolverLista(); return; }
+
+  const lista = omFreq === 'semanal' ? PSEM : PQUIN;
+  const meta  = lista.reduce((s,m) => s+m.p, 0);
+  let totalPag = 0, cntPag = 0;
+  lista.forEach(m => {
+    const e = omEstado[m.n];
+    if (e && (e.est === 'pag' || e.est === 'ajus')) { totalPag += e.monto; cntPag++; }
+  });
+  const totalExt = omExtras.reduce((s,e) => s+e.monto, 0);
+  const grand = totalPag + totalExt;
+  const pct = meta > 0 ? Math.min(100, Math.round(grand/meta*100)) : 0;
+
+  document.getElementById('om-det-titulo').textContent = 'Ofrenda Misionera ' + ciclo.nombre;
+  document.getElementById('om-det-sub').textContent    = ciclo.estado === 'activo' ? 'Ciclo activo' : 'Ciclo cerrado';
+  document.getElementById('om-print-ciclo').textContent = ciclo.nombre;
+  document.getElementById('om-prog').style.width = pct + '%';
+
+  document.getElementById('om-resumen').innerHTML = `
+    <div class="cres">
+      <div class="crfull"><div class="cr-l">Total recibido hoy</div>
+        <div class="cr-v" style="font-size:1.8rem;">${fmt(grand)}</div></div>
+      <div><div class="cr-l">✅ Pagaron</div><div class="cr-v g">${cntPag} / ${lista.length}</div></div>
+      <div><div class="cr-l">⏳ Faltan</div><div class="cr-v r">${lista.length - cntPag}</div></div>
+      <div><div class="cr-l">Meta</div><div class="cr-v">${fmt(meta)}</div></div>
+      <div><div class="cr-l">Progreso</div><div class="cr-v">${pct}%</div></div>
+    </div>`;
+
+  // Listas de hermanos
+  const renderLista = (arr, label) => {
+    const head = `<div style="display:flex;align-items:center;justify-content:space-between;margin:12px 0 8px;">
+      <div class="stit" style="margin:0;flex:1;">${label}</div>
+      <span style="font-size:.72rem;color:var(--t3);">
+        ${arr.filter(m=>{const e=omEstado[m.n];return e&&(e.est==='pag'||e.est==='ajus');}).length} / ${arr.length}
+      </span></div>`;
+    return head + arr.map(m => omItemHTML(m)).join('');
+  };
+
+  if (omFreq === 'semanal') {
+    document.getElementById('om-lista-sem').innerHTML  = renderLista(PSEM, 'Promesa semanal');
+    document.getElementById('om-lista-quin').innerHTML = '';
+  } else {
+    document.getElementById('om-lista-sem').innerHTML  = '';
+    document.getElementById('om-lista-quin').innerHTML = renderLista(PQUIN, 'Promesa quincenal');
+  }
+
+  // Extras
+  const extEl = document.getElementById('om-extras');
+  extEl.innerHTML = omExtras.map((e,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+      background:var(--cream);border:1px solid var(--b2);border-radius:var(--r);margin-bottom:6px;">
+      <div style="flex:1;font-weight:600;font-size:.88rem;">${e.nombre}</div>
+      <div style="font-family:var(--mono);font-weight:700;color:var(--green);">${fmt(e.monto)}</div>
+      <span style="color:var(--t3);cursor:pointer;font-size:1.1rem;padding:2px 5px;"
+        onclick="omDelExtra(${i})">×</span>
+    </div>`).join('');
+}
+
+function omItemHTML(m) {
+  const e   = omEstado[m.n] || {est:'pend', monto:m.p};
+  const cls = e.est==='pag'?'pag':e.est==='ajus'?'ajus':'';
+  const ic  = e.est==='pag'?'✅':e.est==='ajus'?'✏️':'⬜';
+  const amt = e.est==='pend' ? fmt(m.p) : fmt(e.monto);
+  return `<div class="ci2 ${cls}"
+    onclick="omTocar('${m.n.replace(/'/g,"\'")}',${m.p})"
+    oncontextmenu="omLongPress(event,'${m.n.replace(/'/g,"\'")}',${m.p})">
+    <div class="ciav" style="background:${cls?'':avc(m.n)};">${ini(m.n)}</div>
+    <div class="cib">
+      <div class="cin">${m.n}</div>
+      <div class="cip">Promesa: ${fmt(m.p)}${e.obs?' · '+e.obs:''}</div>
+    </div>
+    <div class="cir">
+      <div class="ciam">${amt}</div>
+      <span class="cick">${ic}</span>
+      <div class="ciact">
+        <button class="cab" onclick="event.stopPropagation();omAjustar('${m.n.replace(/'/g,"\'")}',${m.p})">✏️</button>
+        <button class="cab" onclick="event.stopPropagation();omDesmarcar('${m.n.replace(/'/g,"\'")}')">↩️</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function omTocar(nombre, promesa) {
+  const e = omEstado[nombre];
+  if (!e || e.est === 'pend') {
+    omEstado[nombre] = {est:'pag', monto:promesa, obs:''};
+    if (navigator.vibrate) navigator.vibrate(40);
+  } else { omAjustar(nombre, promesa); return; }
+  omRenderDetalle();
+}
+function omLongPress(ev, nombre, promesa) { ev.preventDefault(); omAjustar(nombre, promesa); }
+
+function omAjustar(nombre, promesa) {
+  omAjusteNombre = nombre;
+  const e = omEstado[nombre] || {};
+  document.getElementById('m-om-ajuste-title').textContent = '✏️ ' + nombre;
+  document.getElementById('om-aj-monto').value   = e.monto || promesa;
+  document.getElementById('om-aj-obs').value     = e.obs   || '';
+  document.getElementById('om-aj-nombre').value  = nombre;
+  document.getElementById('om-aj-promesa').value = promesa;
+  openM('m-om-ajuste');
+}
+function omConfirmarAjuste() {
+  const nombre  = document.getElementById('om-aj-nombre').value;
+  const promesa = parseFloat(document.getElementById('om-aj-promesa').value);
+  const monto   = parseFloat(document.getElementById('om-aj-monto').value);
+  const obs     = document.getElementById('om-aj-obs').value.trim();
+  if (!monto || monto <= 0) { toast('Ingresa un monto válido','w'); return; }
+  omEstado[nombre] = {est: monto !== promesa ? 'ajus' : 'pag', monto, obs};
+  closeM('m-om-ajuste');
+  omRenderDetalle();
+}
+function omDesmarcar(n) { omEstado[n] = {est:'pend', monto:0, obs:''}; omRenderDetalle(); }
+function omDelExtra(i)  { omExtras.splice(i,1); omRenderDetalle(); }
+
+function omGuardarExtra() {
+  const nombre = document.getElementById('om-ex-nombre').value.trim() || 'Anónimo';
+  const monto  = parseFloat(document.getElementById('om-ex-monto').value);
+  const obs    = document.getElementById('om-ex-obs').value.trim();
+  if (!monto || monto <= 0) { toast('Ingresa un monto válido','w'); return; }
+  omExtras.push({nombre, monto, obs});
+  document.getElementById('om-ex-nombre').value = '';
+  document.getElementById('om-ex-monto').value  = '';
+  document.getElementById('om-ex-obs').value    = '';
+  closeM('m-om-extra');
+  omRenderDetalle();
+  toast('✅ ' + nombre + ' — ' + fmt(monto) + ' agregado');
+}
+
+function omGuardarColecta() {
+  const ciclo = loadOM().find(c => c.id === omCicloActual);
+  if (!ciclo) return;
+  const fecha = document.getElementById('om-fecha').value;
+  if (!fecha) { toast('Selecciona la fecha del culto','w'); return; }
+
+  const lista   = omFreq === 'semanal' ? PSEM : PQUIN;
+  const pagados = lista.filter(m => {
+    const e = omEstado[m.n]; return e && (e.est === 'pag' || e.est === 'ajus');
+  });
+
+  if (!pagados.length && !omExtras.length) {
+    toast('No hay aportaciones marcadas','w'); return;
+  }
+
+  const total   = pagados.reduce((s,m) => s+omEstado[m.n].monto, 0)
+                + omExtras.reduce((s,e) => s+e.monto, 0);
+  const nombre  = 'Ofrenda Misionera ' + ciclo.nombre;
+
+  if (!confirm('¿Guardar colecta?
+' + fmt(total) + ' de ' + (pagados.length+omExtras.length) + ' aportantes
+Fecha: ' + fecha)) return;
+
+  const mov = loadMov();
+  const h   = hora();
+  pagados.forEach(m => {
+    const e = omEstado[m.n];
+    mov.push({
+      id: uid(), tipo: 'Ingreso', fecha, hora: h,
+      concepto:  nombre, categoria: nombre,
+      monto: e.monto, metodo: 'Efectivo',
+      aportante: m.n, responsable: m.n,
+      observaciones: e.obs||(e.est==='ajus'?'Promesa: '+fmt(m.p):''),
+      origen: 'ofrenda-misionera', cicloId: omCicloActual
+    });
+  });
+  omExtras.forEach(e => {
+    mov.push({
+      id: uid(), tipo: 'Ingreso', fecha, hora: h,
+      concepto: nombre, categoria: nombre,
+      monto: e.monto, metodo: 'Efectivo',
+      aportante: e.nombre, responsable: e.nombre,
+      observaciones: e.obs||'',
+      origen: 'ofrenda-misionera', cicloId: omCicloActual
+    });
+  });
+
+  saveMov(mov);
+  omEstado = {}; omExtras = [];
+  toast('✅ Colecta guardada: ' + fmt(total));
+  omRenderDetalle();
+}
+
+
+
