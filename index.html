@@ -2997,7 +2997,7 @@ function cierreGuardar() {
 <!-- ══════════ SIDEBAR (desktop) ══════════ -->
 <nav id="sidebar" class="hidden">
   <div class="sidebar-item active" data-page="inicio"    onclick="nav('inicio')">   <span class="si">🏠</span> Inicio</div>
-  <div class="sidebar-item"        data-page="colecta"   onclick="nav('colecta')">  <span class="si">🌍</span> Ofrenda Misionera 25-26</div>
+  <div class="sidebar-item"        data-page="colecta"   onclick="nav('colecta')">  <span class="si">🌍</span> Ofrenda Misionera</div>
   <div class="sidebar-item"        data-page="cierre"    onclick="nav('cierre')">   <span class="si">🏦</span> Cierre de culto</div>
   <div class="sidebar-item"        data-page="registro"  onclick="nav('registro')"> <span class="si">⚡</span> Registro rápido</div>
   <div class="sidebar-item"        data-page="egresos"   onclick="nav('egresos')">  <span class="si">📤</span> Egresos</div>
@@ -3056,7 +3056,7 @@ function cierreGuardar() {
 
     <div class="section-title">Acciones rápidas</div>
     <div class="action-grid">
-      <button class="action-btn" onclick="nav('colecta')"><span class="action-icon">🌍</span><span class="action-label">Ofrenda Misionera 25-26</span></button>
+      <button class="action-btn" onclick="nav('colecta')"><span class="action-icon">🌍</span><span class="action-label">Ofrenda Misionera</span></button>
       <button class="action-btn" onclick="nav('cierre')"><span class="action-icon">🏦</span><span class="action-label">Cierre de Culto</span></button>
       <button class="action-btn" onclick="nav('rep-diario')"><span class="action-icon">📅</span><span class="action-label">Reporte diario</span></button>
       <button class="action-btn" onclick="nav('egresos')"><span class="action-icon">📤</span><span class="action-label">Registrar egreso</span></button>
@@ -3506,7 +3506,7 @@ function cierreGuardar() {
       <div class="card no-print" style="margin-top:4px;">
         <div class="stitle" style="margin:0 0 8px;">Otros aportantes</div>
         <div id="om-extras"></div>
-        <button class="btn btn-ghost btn-sm btn-w" onclick="openM('m-om-extra')" style="margin-top:10px;">
+        <button class="btn btn-ghost btn-sm btn-w" onclick="openModal('m-om-extra')" style="margin-top:10px;">
           + Agregar visitante / otro
         </button>
       </div>
@@ -4428,9 +4428,9 @@ function promExportCSV() {
   </script>
 
 <!-- MODAL: NUEVO CICLO -->
-<div class="mbg" id="m-om-ciclo">
+<div class="modal-bg" id="m-om-ciclo">
   <div class="modal">
-    <div class="mh"></div>
+    <div class="modal-handle"></div>
     <h3 id="m-om-ciclo-title">Nuevo ciclo misionero</h3>
     <div class="fg">
       <label class="fl">Nombre del ciclo</label>
@@ -4452,17 +4452,17 @@ function promExportCSV() {
       </div>
     </div>
     <input type="hidden" id="omc-id">
-    <div class="mac2">
-      <button class="btn btn-g" onclick="closeM('m-om-ciclo')">Cancelar</button>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('m-om-ciclo')">Cancelar</button>
       <button class="btn btn-p" onclick="omGuardarCiclo()">💾 Guardar</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL: AJUSTE MONTO OFRENDA MISIONERA -->
-<div class="mbg" id="m-om-ajuste">
+<div class="modal-bg" id="m-om-ajuste">
   <div class="modal">
-    <div class="mh"></div>
+    <div class="modal-handle"></div>
     <h3 id="m-om-ajuste-title">Ajustar monto</h3>
     <div class="fg">
       <label class="fl">Monto recibido ($)</label>
@@ -4475,17 +4475,17 @@ function promExportCSV() {
     </div>
     <input type="hidden" id="om-aj-nombre">
     <input type="hidden" id="om-aj-promesa">
-    <div class="mac2">
-      <button class="btn btn-g" onclick="closeM('m-om-ajuste')">Cancelar</button>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('m-om-ajuste')">Cancelar</button>
       <button class="btn btn-s" onclick="omConfirmarAjuste()">✅ Confirmar</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL: EXTRA OFRENDA MISIONERA -->
-<div class="mbg" id="m-om-extra">
+<div class="modal-bg" id="m-om-extra">
   <div class="modal">
-    <div class="mh"></div>
+    <div class="modal-handle"></div>
     <h3>Agregar aportante</h3>
     <div class="fg">
       <label class="fl">Nombre</label>
@@ -4505,8 +4505,8 @@ function promExportCSV() {
       <label class="fl">Observaciones <span>(opcional)</span></label>
       <input type="text" id="om-ex-obs" class="fc" placeholder="Nota…">
     </div>
-    <div class="mac2">
-      <button class="btn btn-g" onclick="closeM('m-om-extra')">Cancelar</button>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('m-om-extra')">Cancelar</button>
       <button class="btn btn-s" onclick="omGuardarExtra()">✅ Agregar</button>
     </div>
   </div>
@@ -4635,7 +4635,7 @@ function omNuevoCiclo() {
   document.getElementById('m-om-ciclo-title').textContent = 'Nuevo ciclo misionero';
   document.querySelectorAll('#omc-estado .tbtn').forEach(b =>
     b.classList.toggle('on', b.dataset.v === 'activo'));
-  openM('m-om-ciclo');
+  openModal('m-om-ciclo');
 }
 
 function omEditarCiclo(id) {
@@ -4648,7 +4648,7 @@ function omEditarCiclo(id) {
   document.getElementById('m-om-ciclo-title').textContent = 'Editar ciclo';
   document.querySelectorAll('#omc-estado .tbtn').forEach(b =>
     b.classList.toggle('on', b.dataset.v === (ciclo.estado||'activo')));
-  openM('m-om-ciclo');
+  openModal('m-om-ciclo');
 }
 
 function omGuardarCiclo() {
@@ -4669,7 +4669,7 @@ function omGuardarCiclo() {
     ciclos.push({ id: uid(), ...obj });
   }
   saveOM(ciclos);
-  closeM('m-om-ciclo');
+  closeModal('m-om-ciclo');
   omRenderLista();
   toast(editId ? 'Ciclo actualizado' : 'Ciclo creado');
 }
@@ -4814,7 +4814,7 @@ function omAjustar(nombre, promesa) {
   document.getElementById('om-aj-obs').value     = e.obs   || '';
   document.getElementById('om-aj-nombre').value  = nombre;
   document.getElementById('om-aj-promesa').value = promesa;
-  openM('m-om-ajuste');
+  openModal('m-om-ajuste');
 }
 function omConfirmarAjuste() {
   const nombre  = document.getElementById('om-aj-nombre').value;
@@ -4823,7 +4823,7 @@ function omConfirmarAjuste() {
   const obs     = document.getElementById('om-aj-obs').value.trim();
   if (!monto || monto <= 0) { toast('Ingresa un monto válido','w'); return; }
   omEstado[nombre] = {est: monto !== promesa ? 'ajus' : 'pag', monto, obs};
-  closeM('m-om-ajuste');
+  closeModal('m-om-ajuste');
   omRenderDetalle();
 }
 function omDesmarcar(n) { omEstado[n] = {est:'pend', monto:0, obs:''}; omRenderDetalle(); }
@@ -4838,7 +4838,7 @@ function omGuardarExtra() {
   document.getElementById('om-ex-nombre').value = '';
   document.getElementById('om-ex-monto').value  = '';
   document.getElementById('om-ex-obs').value    = '';
-  closeM('m-om-extra');
+  closeModal('m-om-extra');
   omRenderDetalle();
   toast('✅ ' + nombre + ' — ' + fmt(monto) + ' agregado');
 }
