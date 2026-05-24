@@ -1306,6 +1306,25 @@ function renderDash() {
   setText('dash-bal-hoy',   fmt(ingH - egrH));
   setText('dash-count-hoy', cntH);
 
+  // Saldo por categoría de ingresos (solo las que tienen saldo > 0)
+  const porCat = {};
+  mov.filter(m => m.tipo === 'Ingreso').forEach(m => {
+    const cat = m.categoria || m.concepto || 'Otros';
+    porCat[cat] = (porCat[cat] || 0) + m.monto;
+  });
+  const catRows = Object.entries(porCat)
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const catEl = document.getElementById('dash-cat-breakdown');
+  if (catEl) {
+    catEl.innerHTML = catRows.length === 0 ? '' : catRows.map(([cat, val]) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;
+        padding:6px 0;border-bottom:1px solid rgba(201,168,76,.15);font-size:.8rem;">
+        <span style="color:rgba(240,236,228,.7);">${cat}</span>
+        <span style="font-family:var(--mono);font-weight:700;color:var(--gold-lt);">${fmt(val)}</span>
+      </div>`).join('');
+  }
+
   // Lista de hoy
   const hoyMov = mov.filter(m => m.fecha === h && m.tipo === 'Ingreso')
                     .sort((a,b) => (b.hora||'').localeCompare(a.hora||'')).slice(0, 10);
@@ -2999,6 +3018,7 @@ function cierreGuardar() {
       <div class="stat-hero-label">Saldo general disponible</div>
       <div class="stat-hero-value" id="dash-saldo">$0.00</div>
       <div class="stat-hero-sub" id="dash-date"></div>
+      <div id="dash-cat-breakdown" style="margin-top:12px;border-top:1px solid rgba(201,168,76,.2);padding-top:10px;"></div>
     </div>
 
     <div class="stat-row">
