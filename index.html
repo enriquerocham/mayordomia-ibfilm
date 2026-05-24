@@ -1306,10 +1306,11 @@ function renderDash() {
   setText('dash-bal-hoy',   fmt(ingH - egrH));
   setText('dash-count-hoy', cntH);
 
-  // Saldo por categoría de ingresos (solo las que tienen saldo > 0)
+  // Saldo por concepto/categoría (solo los que tienen saldo > 0)
   const porCat = {};
   mov.filter(m => m.tipo === 'Ingreso').forEach(m => {
-    const cat = m.categoria || m.concepto || 'Otros';
+    // Usar concepto si es más descriptivo que la categoría
+    const cat = (m.concepto && m.concepto !== m.categoria) ? m.concepto : (m.categoria || m.concepto || 'Otros');
     porCat[cat] = (porCat[cat] || 0) + m.monto;
   });
   const catRows = Object.entries(porCat)
@@ -1589,6 +1590,10 @@ function delMovRR(id) {
   saveMov(loadMov().filter(m => m.id !== id));
   renderRRToday();
   toast('🗑️ Registro eliminado', 'warn');
+  // Eliminar de Firebase y registrar ID para evitar que vuelva
+  if(typeof window.fbDelMov === 'function') window.fbDelMov(id);
+  const _del = JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
+  if(!_del.includes(id)){_del.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_del));}
 }
 
 function deshacerUltimo() {
@@ -1869,6 +1874,9 @@ function guardarEdicionMov() {
 function deleteMov(id) {
   if (!confirm('¿Eliminar este movimiento?')) return;
   saveMov(loadMov().filter(m => m.id !== id));
+  if(typeof window.fbDelMov === 'function') window.fbDelMov(id);
+  const _del2 = JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
+  if(!_del2.includes(id)){_del2.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_del2));}
   renderMov();
   toast('🗑️ Eliminado', 'warn');
 }
@@ -3784,7 +3792,13 @@ const K_PROM = 'ibfilm_promesas_v1';
 function loadProm() {
   try { return JSON.parse(localStorage.getItem(K_PROM) || '[]'); } catch { return []; }
 }
-function saveProm(d) { localStorage.setItem(K_PROM, JSON.stringify(d)); }
+function saveProm(d) {
+  localStorage.setItem(K_PROM, JSON.stringify(d));
+  // Sync each event to Firebase immediately
+  if (typeof window.fbSaveEv === 'function') {
+    d.forEach(ev => window.fbSaveEv(ev));
+  }
+}
 
 let promEventoActual = null;  // id del evento abierto
 let paMetodo = 'Efectivo';
@@ -4296,12 +4310,22 @@ function promExportCSV() {
     async function syncFromCloud() {
       setSyncStatus(true, 'Sincronizando...');
       try {
-        // Movimientos
+        // Movimientos — respetar eliminaciones locales
+        const deletedIds = JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
         const movSnap = await getDocs(collection(db, COL_MOV));
-        const movs = [];
-        movSnap.forEach(d => movs.push(d.data()));
-        if (movs.length > 0) {
-          localStorage.setItem('ibfilm_movimientos_v2', JSON.stringify(movs));
+        const movsFB = [];
+        movSnap.forEach(d => movsFB.push(d.data()));
+        if (movsFB.length > 0) {
+          // Filtrar los que fueron eliminados localmente
+          const movsFiltered = movsFB.filter(m => !deletedIds.includes(m.id));
+          // Eliminar de Firebase los que están en la lista de eliminados
+          deletedIds.forEach(id => { if(window.fbDelMov) window.fbDelMov(id); });
+          // Merge con locales — mantener los locales que no están en Firebase
+          const movsLocal = JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]');
+          const fbIds = new Set(movsFiltered.map(m=>m.id));
+          const onlyLocal = movsLocal.filter(m => !fbIds.has(m.id) && !deletedIds.includes(m.id));
+          const merged = [...movsFiltered, ...onlyLocal];
+          localStorage.setItem('ibfilm_movimientos_v2', JSON.stringify(merged));
         }
         // Miembros
         const memSnap = await getDocs(collection(db, COL_MEM));
@@ -4310,12 +4334,28 @@ function promExportCSV() {
         if (mems.length > 0) {
           localStorage.setItem('ibfilm_miembros_v1', JSON.stringify(mems));
         }
-        // Eventos
+        // Eventos — merge con datos locales para no perder abonos
         const evSnap = await getDocs(collection(db, COL_EV));
-        const evs = [];
-        evSnap.forEach(d => evs.push(d.data()));
-        if (evs.length > 0) {
-          localStorage.setItem('ibfilm_promesas_v1', JSON.stringify(evs));
+        const evsFB = [];
+        evSnap.forEach(d => evsFB.push(d.data()));
+        if (evsFB.length > 0) {
+          const evsLocal = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]');
+          // Merge: para cada evento, usar el que tenga más abonos (más actualizado)
+          const merged = evsFB.map(fbEv => {
+            const localEv = evsLocal.find(l => l.id === fbEv.id);
+            if (!localEv) return fbEv;
+            // Comparar total de abonos en participantes
+            const fbAbonos = (fbEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
+            const localAbonos = (localEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
+            return localAbonos >= fbAbonos ? localEv : fbEv;
+          });
+          // Agregar eventos locales que no están en Firebase
+          evsLocal.forEach(lev => {
+            if (!merged.find(m => m.id === lev.id)) merged.push(lev);
+          });
+          localStorage.setItem('ibfilm_promesas_v1', JSON.stringify(merged));
+          // Subir versión merged a Firebase
+          merged.forEach(ev => { if(window.fbSaveEv) window.fbSaveEv(ev); });
         }
         setSyncStatus(true, 'Todo sincronizado');
         // Refrescar la vista actual
