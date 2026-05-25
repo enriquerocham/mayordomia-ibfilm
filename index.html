@@ -1226,6 +1226,60 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .matriz-total { font-weight: 800; color: var(--green); }
 .matriz-diff.pos { color: var(--green); font-weight: 800; }
 .matriz-diff.neg { color: var(--red); font-weight: 800; }
+
+/* Captura histórica de Matriz General (solo visual, no contable) */
+.matriz-hist-box {
+  background: var(--amber-lt);
+  border: 1.5px solid rgba(217,119,6,.28);
+  color: #6b3f00;
+  border-radius: var(--r-lg);
+  padding: 12px 14px;
+  margin-top: 10px;
+  font-size: .78rem;
+  line-height: 1.45;
+  display: none;
+}
+.matriz-hist-box.show { display: block; }
+.matriz-hist-box strong { color: #4a2c00; }
+.matriz-cell.hist-editable {
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.matriz-cell.hist-editable:hover {
+  outline: 2px solid rgba(201,168,76,.55);
+  outline-offset: -2px;
+}
+.matriz-cell.manual {
+  background: #e8f7ef !important;
+  color: var(--green-dk) !important;
+  font-weight: 900;
+}
+.matriz-cell.manual::after {
+  content: '✎';
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: .55rem;
+  color: rgba(29,122,78,.6);
+}
+.matriz-cell.real-manual {
+  background: #e5f2ff !important;
+  color: #174a7c !important;
+}
+.matriz-hist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+.matriz-hist-mini {
+  font-size: .72rem;
+  color: #7c4a00;
+}
+
 .matriz-empty {
   text-align: center;
   padding: 24px 14px;
@@ -3236,6 +3290,148 @@ let matFreq = 'semanal';
 let matFiltro = 'todos';
 let matCicloId = null;
 let matUltimaData = null;
+let matModoHistorico = false;
+let matClickTimer = null;
+
+
+const K_MAT_MANUAL = 'ibfilm_matriz_manual_v1'; // captura histórica solo para Matriz General; no afecta ingresos ni reportes
+
+function matManualAll() {
+  try { return JSON.parse(localStorage.getItem(K_MAT_MANUAL) || '{}'); } catch(e) { return {}; }
+}
+function matManualSaveAll(all) {
+  localStorage.setItem(K_MAT_MANUAL, JSON.stringify(all || {}));
+  const cicloId = matCicloId || '';
+  if (cicloId && typeof window.fbSaveMatManual === 'function') {
+    window.fbSaveMatManual(cicloId, (all || {})[cicloId] || { cicloId, data:{}, updatedAt:new Date().toISOString() });
+  }
+}
+function matManualCiclo(cicloId) {
+  const all = matManualAll();
+  return all[cicloId] || { cicloId, semanal:{}, quincenal:{}, updatedAt: new Date().toISOString() };
+}
+function matManualGet(cicloId, freq, nombre, iso) {
+  const c = matManualCiclo(cicloId);
+  const f = c[freq] || {};
+  const byName = f[nombre] || {};
+  const rec = byName[iso];
+  return rec ? (parseFloat(rec.monto || 0) || 0) : 0;
+}
+function matManualSet(cicloId, freq, nombre, iso, monto, promesa) {
+  if (!cicloId || !freq || !nombre || !iso) return;
+  const all = matManualAll();
+  const c = all[cicloId] || { cicloId, semanal:{}, quincenal:{}, updatedAt: new Date().toISOString() };
+  c.semanal = c.semanal || {};
+  c.quincenal = c.quincenal || {};
+  c[freq] = c[freq] || {};
+  c[freq][nombre] = c[freq][nombre] || {};
+  const val = parseFloat(monto || 0) || 0;
+  if (val <= 0) {
+    delete c[freq][nombre][iso];
+    if (Object.keys(c[freq][nombre]).length === 0) delete c[freq][nombre];
+  } else {
+    c[freq][nombre][iso] = {
+      monto: val,
+      promesa: parseFloat(promesa || 0) || 0,
+      fecha: iso,
+      nombre,
+      frecuencia: freq,
+      tipo: 'historico-visual',
+      updatedAt: new Date().toISOString()
+    };
+  }
+  c.updatedAt = new Date().toISOString();
+  all[cicloId] = c;
+  matManualSaveAll(all);
+}
+function matManualCount(cicloId) {
+  const c = matManualCiclo(cicloId);
+  let n = 0;
+  ['semanal','quincenal'].forEach(freq => {
+    Object.values(c[freq] || {}).forEach(byDate => { n += Object.keys(byDate || {}).length; });
+  });
+  return n;
+}
+function matIsCicloHistorico(ciclo) {
+  const txt = String((ciclo && (ciclo.nombre || ciclo.id)) || '').toLowerCase();
+  return txt.includes('2025') && txt.includes('2026');
+}
+function matCanEditHistorico() {
+  const ciclo = matGetCiclo();
+  return !!(ciclo && matIsCicloHistorico(ciclo));
+}
+function matToggleHistorico() {
+  if (!matCanEditHistorico()) {
+    matModoHistorico = false;
+    toast('La captura histórica solo está habilitada para el ciclo 2025-2026.', 'warn');
+    matRender();
+    return;
+  }
+  matModoHistorico = !matModoHistorico;
+  matRender();
+  toast(matModoHistorico ? '✎ Captura histórica activada. Clic = compromiso; doble clic = editar.' : 'Captura histórica desactivada');
+}
+function matManualCellClick(el) {
+  if (!matModoHistorico || !matCanEditHistorico()) return;
+  if (matClickTimer) clearTimeout(matClickTimer);
+  matClickTimer = setTimeout(() => {
+    matClickTimer = null;
+    const cicloId = el.dataset.ciclo || matCicloId || '';
+    const freq = el.dataset.freq || matFreq;
+    const nombre = decodeURIComponent(el.dataset.nombre || '');
+    const iso = el.dataset.fecha || '';
+    const promesa = parseFloat(el.dataset.promesa || '0') || 0;
+    const actualManual = parseFloat(el.dataset.manual || '0') || 0;
+    const real = parseFloat(el.dataset.real || '0') || 0;
+    if (!cicloId || !nombre || !iso) return;
+    if (actualManual > 0) {
+      if (!confirm('¿Borrar la captura histórica de esta celda?\n\nEsto solo afecta la Matriz General, no la contabilidad.')) return;
+      matManualSet(cicloId, freq, nombre, iso, 0, promesa);
+      toast('Celda histórica borrada', 'warn');
+    } else {
+      matManualSet(cicloId, freq, nombre, iso, promesa, promesa);
+      toast(`Captura histórica: ${nombre} — ${fmt(promesa)}`);
+    }
+    matRender();
+  }, 240);
+}
+function matManualCellDblClick(el) {
+  if (!matModoHistorico || !matCanEditHistorico()) return;
+  if (matClickTimer) { clearTimeout(matClickTimer); matClickTimer = null; }
+  const cicloId = el.dataset.ciclo || matCicloId || '';
+  const freq = el.dataset.freq || matFreq;
+  const nombre = decodeURIComponent(el.dataset.nombre || '');
+  const iso = el.dataset.fecha || '';
+  const promesa = parseFloat(el.dataset.promesa || '0') || 0;
+  const actualManual = parseFloat(el.dataset.manual || '0') || 0;
+  const real = parseFloat(el.dataset.real || '0') || 0;
+  const sugerido = actualManual > 0 ? actualManual : (real > 0 ? real : promesa);
+  const resp = prompt('Cantidad histórica para ' + nombre + ' en ' + iso + '\n\nEste dato solo afecta la Matriz General. Escribe 0 o deja vacío para borrar.', String(sugerido || ''));
+  if (resp === null) return;
+  const limpio = String(resp).replace(/[$,\s]/g, '');
+  const val = parseFloat(limpio || '0') || 0;
+  matManualSet(cicloId, freq, nombre, iso, val, promesa);
+  toast(val > 0 ? `✎ Captura histórica guardada: ${fmt(val)}` : 'Celda histórica borrada', val > 0 ? 'ok' : 'warn');
+  matRender();
+}
+function matManualCellContext(ev, el) {
+  ev.preventDefault();
+  matManualCellDblClick(el);
+  return false;
+}
+function matLimpiarHistoricoCiclo() {
+  const ciclo = matGetCiclo();
+  if (!ciclo || !matCanEditHistorico()) return;
+  const n = matManualCount(ciclo.id);
+  if (!n) { toast('No hay capturas históricas para borrar.', 'warn'); return; }
+  if (!confirm(`¿Borrar las ${n} capturas históricas del ciclo ${ciclo.nombre}?\n\nNo se eliminarán movimientos reales, ingresos, egresos ni reportes contables.`)) return;
+  const all = matManualAll();
+  delete all[ciclo.id];
+  localStorage.setItem(K_MAT_MANUAL, JSON.stringify(all));
+  if (typeof window.fbSaveMatManual === 'function') window.fbSaveMatManual(ciclo.id, { cicloId:ciclo.id, semanal:{}, quincenal:{}, updatedAt:new Date().toISOString() });
+  toast('Captura histórica del ciclo borrada', 'warn');
+  matRender();
+}
 
 function matParseDate(s) {
   if (!s) return null;
@@ -3322,7 +3518,7 @@ function matMinDate(movs) {
   return min;
 }
 function matRango(ciclo, movs) {
-  let inicio = matParseDate(ciclo?.inicio) || matMinDate(movs) || matToday();
+  let inicio = matParseDate(ciclo?.inicio) || (matIsCicloHistorico(ciclo) ? matParseDate('2025-08-17') : null) || matMinDate(movs) || matToday();
   let finConf = matParseDate(ciclo?.fin);
   let hoyD = matToday();
   let fin = finConf && finConf < hoyD ? finConf : hoyD;
@@ -3370,8 +3566,10 @@ function matBuildData() {
   const movs = matMovsDelCiclo(ciclo);
   const { inicio, fin } = matRango(ciclo, movs);
   const periodos = matGenerarPeriodos(inicio, fin, matFreq);
+  const manualCiclo = matManualCiclo(ciclo.id);
   const rows = compromisos.map(p => {
-    const porPeriodo = periodos.map(() => 0);
+    const porPeriodoReal = periodos.map(() => 0);
+    const porPeriodoManual = periodos.map(() => 0);
     const pagos = movs.filter(m => {
       if ((m.aportante || '').trim() !== p.nombre) return false;
       if (m.frecuencia === 'extra') return false;
@@ -3379,15 +3577,24 @@ function matBuildData() {
     });
     pagos.forEach(m => {
       const idx = matPeriodoIndex(m.fecha, periodos, matFreq);
-      if (idx >= 0) porPeriodo[idx] += parseFloat(m.monto || 0) || 0;
+      if (idx >= 0) porPeriodoReal[idx] += parseFloat(m.monto || 0) || 0;
     });
+    const f = manualCiclo[matFreq] || {};
+    const byName = f[p.nombre] || {};
+    periodos.forEach((per, idx) => {
+      const rec = byName[per.iso];
+      if (rec) porPeriodoManual[idx] = parseFloat(rec.monto || 0) || 0;
+    });
+    const porPeriodo = porPeriodoReal.map((v, i) => v + porPeriodoManual[i]);
     const recibido = porPeriodo.reduce((s,n)=>s+n,0);
+    const recibidoReal = porPeriodoReal.reduce((s,n)=>s+n,0);
+    const recibidoManual = porPeriodoManual.reduce((s,n)=>s+n,0);
     const programado = (parseFloat(p.promesa || 0) || 0) * periodos.length;
     const actual = porPeriodo[porPeriodo.length - 1] || 0;
     const estado = matEstadoInfo(recibido, programado, actual);
-    return { ...p, porPeriodo, recibido, programado, diferencia: recibido - programado, actual, estado };
+    return { ...p, porPeriodo, porPeriodoReal, porPeriodoManual, recibido, recibidoReal, recibidoManual, programado, diferencia: recibido - programado, actual, estado };
   });
-  return { ciclo, compromisos, movs, periodos, rows };
+  return { ciclo, compromisos, movs, periodos, rows, manualCiclo };
 }
 function matFiltrarRows(rows) {
   if (matFiltro === 'corriente') return rows.filter(r => r.estado.key === 'corriente' || r.estado.key === 'adelantado');
@@ -3419,6 +3626,18 @@ function matRender() {
   if (empty) empty.style.display = 'none';
   setText('print-matriz-ciclo', 'Matriz General — ' + data.ciclo.nombre);
   setText('print-matriz-fecha', 'Generado el ' + fechaLabel(hoy()));
+
+  const canHist = matCanEditHistorico();
+  if (!canHist) matModoHistorico = false;
+  document.getElementById('mat-hist-toggle')?.classList.toggle('sel', matModoHistorico);
+  const histBox = document.getElementById('mat-hist-box');
+  const histCount = matManualCount(data.ciclo.id);
+  if (histBox) {
+    histBox.classList.toggle('show', canHist && matModoHistorico);
+    histBox.innerHTML = canHist && matModoHistorico ? `<strong>Captura histórica activa.</strong> Clic en una celda vacía para colocar el compromiso del hermano/a; doble clic o clic derecho para escribir una cantidad distinta. Estos datos son solo para la Matriz General y no afectan ingresos, egresos, saldos ni reportes. Capturas guardadas: <strong>${histCount}</strong>.` : '';
+  }
+  const histMini = document.getElementById('mat-hist-mini');
+  if (histMini) histMini.textContent = canHist ? `${histCount} capturas históricas guardadas` : 'Disponible solo para el ciclo 2025-2026';
 
   const rows = matFiltrarRows(data.rows);
   const totalProg = data.rows.reduce((s,r)=>s+r.programado,0);
@@ -3472,13 +3691,22 @@ function matRenderTable(rows, periodos) {
   const wrap = document.getElementById('mat-table-wrap');
   if (!wrap) return;
   if (!rows.length) { wrap.innerHTML = '<div class="matriz-empty">Sin datos para mostrar en la matriz.</div>'; return; }
+  const editable = matModoHistorico && matCanEditHistorico();
   const head = '<tr><th class="mat-name">Hermano/a</th><th>Comp.</th>' + periodos.map(p => `<th>${p.label}</th>`).join('') + '<th>Total</th><th>Dif.</th><th>Estado</th></tr>';
   const body = rows.map(r => {
-    const cells = r.porPeriodo.map(v => {
+    const cells = r.porPeriodo.map((v, idx) => {
+      const real = (r.porPeriodoReal && r.porPeriodoReal[idx]) || 0;
+      const manual = (r.porPeriodoManual && r.porPeriodoManual[idx]) || 0;
       let cls = 'bad';
-      if (v > 0 && Math.abs(v - r.promesa) < 0.01) cls = 'ok';
+      if (manual > 0 && real > 0) cls = 'real-manual';
+      else if (manual > 0) cls = 'manual';
+      else if (v > 0 && Math.abs(v - r.promesa) < 0.01) cls = 'ok';
       else if (v > 0) cls = 'warn';
-      return `<td class="matriz-cell ${v > 0 ? cls : 'bad'}">${v > 0 ? fmtN(v) : '—'}</td>`;
+      const attrs = editable
+        ? ` hist-editable" data-ciclo="${omHtml(matCicloId || '')}" data-freq="${omHtml(matFreq)}" data-nombre="${encodeURIComponent(r.nombre)}" data-fecha="${omHtml(periodos[idx].iso)}" data-promesa="${omHtml(String(r.promesa || 0))}" data-real="${omHtml(String(real || 0))}" data-manual="${omHtml(String(manual || 0))}" onclick="matManualCellClick(this)" ondblclick="matManualCellDblClick(this)" oncontextmenu="return matManualCellContext(event,this)" title="Clic: colocar compromiso. Doble clic: editar cantidad. Clic derecho: editar."`
+        : '"';
+      const tip = manual > 0 && real > 0 ? ` title="Incluye real ${fmt(real)} + histórico ${fmt(manual)}"` : '';
+      return `<td class="matriz-cell ${v > 0 ? cls : 'bad'}${editable ? attrs : '"'}${!editable ? tip : ''}>${v > 0 ? fmtN(v) : '—'}</td>`;
     }).join('');
     return `<tr>
       <td class="mat-name">${omHtml(r.nombre)}</td>
@@ -4166,6 +4394,12 @@ function cierreGuardar() {
         <button class="btn btn-ghost btn-sm" onclick="matExportCSV()" style="align-self:flex-end;">📥 CSV</button>
         <button class="btn btn-primary btn-sm" onclick="matRender()" style="align-self:flex-end;">Actualizar</button>
       </div>
+      <div class="matriz-hist-actions">
+        <button class="toggle-btn" id="mat-hist-toggle" onclick="matToggleHistorico()">✎ Captura histórica</button>
+        <button class="btn btn-ghost btn-xs" onclick="matLimpiarHistoricoCiclo()">Limpiar histórico del ciclo</button>
+        <span class="matriz-hist-mini" id="mat-hist-mini">Disponible solo para el ciclo 2025-2026</span>
+      </div>
+      <div class="matriz-hist-box" id="mat-hist-box"></div>
     </div>
 
     <div id="mat-empty" class="matriz-empty" style="display:none;"></div>
@@ -4972,6 +5206,7 @@ function promExportCSV() {
     const COL_EV  = 'eventos';
     const COL_OM  = 'om_ciclos';
     const COL_OM_PROM = 'om_promesas';
+    const COL_MAT_MANUAL = 'om_matriz_manual';
 
     // ── Sync status indicator ──
     function setSyncStatus(ok, msg) {
@@ -5045,6 +5280,21 @@ function promExportCSV() {
     // ── ELIMINAR promesas misioneras por ciclo ──
     window.fbDelOMProm = async function(cicloId) {
       try { await deleteDoc(doc(db, COL_OM_PROM, cicloId)); } catch(e) {}
+    };
+
+
+    // ── GUARDAR captura histórica de Matriz General (solo visual) ──
+    window.fbSaveMatManual = async function(cicloId, data) {
+      try {
+        if (!cicloId) return;
+        await setDoc(doc(db, COL_MAT_MANUAL, cicloId), {
+          id: cicloId,
+          cicloId: cicloId,
+          data: data,
+          updatedAt: (data && data.updatedAt) || new Date().toISOString()
+        });
+        setSyncStatus(true, 'Sincronizado');
+      } catch(e) { setSyncStatus(false, 'Sin conexión — guardado local'); }
     };
 
     // ── SYNC INICIAL: bajar datos de Firestore a localStorage ──
@@ -5141,6 +5391,25 @@ function promExportCSV() {
         localStorage.setItem('ibfilm_om_promesas_v1', JSON.stringify(mergedProm));
         Object.entries(mergedProm).forEach(([cicloId, data]) => { if(window.fbSaveOMProm) window.fbSaveOMProm(cicloId, data); });
 
+        // Captura histórica de Matriz General — merge por updatedAt
+        const matSnap = await getDocs(collection(db, COL_MAT_MANUAL));
+        const matCloud = {};
+        matSnap.forEach(d => {
+          const rec = d.data();
+          if (rec && rec.cicloId && rec.data) matCloud[rec.cicloId] = rec.data;
+        });
+        const matLocal = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}');
+        const mergedMat = Object.assign({}, matLocal);
+        Object.keys(matCloud).forEach(cicloId => {
+          const cloudData = matCloud[cicloId] || {};
+          const localData = matLocal[cicloId] || null;
+          const cloudTime = new Date(cloudData.updatedAt || 0).getTime();
+          const localTime = localData ? new Date(localData.updatedAt || 0).getTime() : 0;
+          if (!localData || cloudTime > localTime) mergedMat[cicloId] = cloudData;
+        });
+        localStorage.setItem('ibfilm_matriz_manual_v1', JSON.stringify(mergedMat));
+        Object.entries(mergedMat).forEach(([cicloId, data]) => { if(window.fbSaveMatManual) window.fbSaveMatManual(cicloId, data); });
+
         setSyncStatus(true, 'Todo sincronizado');
         // Refrescar la vista actual
         if (typeof renderDash === 'function') renderDash();
@@ -5159,11 +5428,13 @@ function promExportCSV() {
         const evs  = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]');
         const omc  = JSON.parse(localStorage.getItem('ibfilm_om_ciclos_v1') || '[]');
         const omp  = JSON.parse(localStorage.getItem('ibfilm_om_promesas_v1') || '{}');
+        const matm = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}');
         movs.forEach(m => batch.set(doc(db, COL_MOV, m.id), m));
         mems.forEach(m => batch.set(doc(db, COL_MEM, m.id), m));
         evs.forEach(e => batch.set(doc(db, COL_EV, e.id), e));
         omc.forEach(c => batch.set(doc(db, COL_OM, c.id), c));
         Object.entries(omp).forEach(([cicloId, data]) => batch.set(doc(db, COL_OM_PROM, cicloId), { id:cicloId, cicloId:cicloId, data:data, updatedAt:(data && data.updatedAt) || new Date().toISOString() }));
+        Object.entries(matm).forEach(([cicloId, data]) => batch.set(doc(db, COL_MAT_MANUAL, cicloId), { id:cicloId, cicloId:cicloId, data:data, updatedAt:(data && data.updatedAt) || new Date().toISOString() }));
         await batch.commit();
         setSyncStatus(true, 'Datos subidos correctamente');
         if (typeof toast === 'function') toast('☁️ Datos sincronizados con Firebase');
@@ -5607,6 +5878,7 @@ function omPromGuardarYCerrar() {
 if (typeof window.fbSaveOM !== 'function') window.fbSaveOM = null;
 if (typeof window.fbDelOM !== 'function') window.fbDelOM = null;
 if (typeof window.fbSaveOMProm !== 'function') window.fbSaveOMProm = null;
+if (typeof window.fbSaveMatManual !== 'function') window.fbSaveMatManual = null;
 if (typeof window.fbDelOMProm !== 'function') window.fbDelOMProm = null;
 
 function omVolverACiclos() {
