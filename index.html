@@ -348,9 +348,6 @@ body {
 .action-btn:active { background: var(--cream-2); transform: scale(.97); }
 .action-icon { font-size: 1.8rem; }
 .action-label { font-size: 0.78rem; font-weight: 600; color: var(--navy); text-align: center; line-height: 1.2; }
-.action-btn-wide { grid-column: span 2; flex-direction: row; gap: 10px; padding: 14px 20px; }
-.action-btn-wide .action-icon { font-size: 1.4rem; }
-.action-btn-wide .action-label { font-size: 0.85rem; }
 
 /* ══════════════════════════════════════════
    FORMS
@@ -389,24 +386,22 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 /* Toggle button groups (categories, methods) */
 .toggle-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .toggle-btn {
-  background: var(--white);
+  background: var(--cream-2);
   border: 1.5px solid var(--border-2);
-  border-radius: 20px;
-  padding: 9px 18px;
+  border-radius: 10px;
+  padding: 9px 14px;
   font-family: var(--font);
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-2);
   cursor: pointer;
-  transition: all .18s;
+  transition: all .15s;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
 }
-.toggle-btn:active, .toggle-btn.sel, .toggle-btn.on {
+.toggle-btn:active, .toggle-btn.sel {
   background: var(--navy);
   border-color: var(--navy);
   color: var(--gold-lt);
-  box-shadow: 0 2px 8px rgba(15,28,46,.2);
 }
 
 /* Category buttons grid */
@@ -1119,18 +1114,6 @@ let repData     = [];     // datos del reporte general actual
    UTILIDADES
 ══════════════════════════════════════════ */
 const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
-
-function selMet(btn, groupId) {
-  const grp = document.getElementById(groupId);
-  if (grp) grp.querySelectorAll('button').forEach(b => { b.classList.remove('sel','on'); });
-  btn.classList.add('sel','on');
-}
-function getSelMet(groupId) {
-  const grp = document.getElementById(groupId);
-  if (!grp) return '';
-  const sel = grp.querySelector('.sel,.on');
-  return sel ? (sel.dataset.v || '') : '';
-};
 const hoy  = () => new Date().toISOString().split('T')[0];
 const fmt  = n  => '$' + parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtN = n  => parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1322,6 +1305,23 @@ function renderDash() {
       </div>
       <div class="ti-amt">${fmt(m.monto)}</div>
     </div>`).join('');
+  // Desglose de saldo neto por categoría
+  const porCat = {};
+  mov.forEach(function(m) {
+    var cat = (m.concepto && m.concepto !== m.categoria) ? m.concepto : (m.categoria || m.concepto || 'Otros');
+    if (cat === 'Misiones') cat = 'Ofrenda Misionera 25-26';
+    var sign = m.tipo === 'Ingreso' ? 1 : -1;
+    porCat[cat] = (porCat[cat] || 0) + (m.monto * sign);
+  });
+  var catEl = document.getElementById('dash-cat-breakdown');
+  if (catEl) {
+    var rows = Object.entries(porCat).filter(function(e){ return e[1] > 0; }).sort(function(a,b){ return b[1]-a[1]; });
+    catEl.innerHTML = rows.map(function(e){
+      return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(201,168,76,.12);font-size:.82rem;">'+
+        '<span style="color:rgba(240,236,228,.7);">'+e[0]+'</span>'+
+        '<span style="font-family:var(--mono);font-weight:700;color:var(--gold-lt);">'+fmt(e[1])+'</span></div>';
+    }).join('');
+  }
 }
 
 function setText(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
@@ -1338,34 +1338,51 @@ function catColor(cat) {
 /* ══════════════════════════════════════════
    AUTOCOMPLETE
 ══════════════════════════════════════════ */
+var _acCache = {};
 function acSearch(q, prefix) {
   const mem  = loadMem().filter(m => m.estatus !== 'Inactivo');
   const list = document.getElementById('ac-' + prefix);
-  if (!q || q.length < 1) { list.classList.remove('open'); return; }
+  if (!q || q.length < 1) { list.classList.remove('open'); _acCache[prefix]=[]; return; }
   const r = mem.filter(m => m.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  _acCache[prefix] = r;
   if (r.length === 0) {
     list.innerHTML = '<div class="ac-item" style="color:var(--text-3);">Sin resultados</div>';
     list.classList.add('open'); return;
   }
-  list.innerHTML = r.map(m => `
-    <div class="ac-item" onclick='acSelect(${JSON.stringify(m)},"${prefix}")'>
+  list.innerHTML = r.map((m, i) => `
+    <div class="ac-item" data-ac-i="${i}" data-ac-p="${prefix}">
       <div class="ac-avatar" style="background:${avatarColor(m.nombre)};">${initiales(m.nombre)}</div>
       <div>
         <div class="ac-name">${m.nombre}</div>
         <div class="ac-sub">${m.grupo || ''} · ${m.estatus}</div>
       </div>
     </div>`).join('');
+  list.querySelectorAll('.ac-item[data-ac-i]').forEach(el => {
+    el.addEventListener('mousedown', e => e.preventDefault());
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const m = (_acCache[el.dataset.acP]||[])[parseInt(el.dataset.acI)];
+      if (m) acSelect(m, el.dataset.acP);
+    });
+  });
   list.classList.add('open');
 }
 
 function acSelect(m, prefix) {
-  document.getElementById('ac-' + prefix).classList.remove('open');
-  document.getElementById(prefix + '-search').value = '';
+  const list = document.getElementById('ac-' + prefix);
+  if (list) list.classList.remove('open');
+  const searchEl = document.getElementById(prefix + '-search');
+  if (searchEl) searchEl.value = '';
   if (prefix === 'rr') {
     rrMiembro = { tipo: 'miembro', id: m.id, nombre: m.nombre };
-    showChip(m.nombre, m.grupo + ' · ' + m.estatus, avatarColor(m.nombre), 'rr');
+    showChip(m.nombre, (m.grupo||'') + ' · ' + m.estatus, avatarColor(m.nombre), 'rr');
     document.querySelectorAll('.toggle-btn[data-quick]').forEach(b => b.classList.remove('sel'));
-    document.getElementById('rr-otro-inp').style.display = 'none';
+    const oi = document.getElementById('rr-otro-inp'); if(oi) oi.style.display = 'none';
+  }
+  if (prefix === 'pp') {
+    ppMiembro = { id: m.id, nombre: m.nombre };
+    const mn = document.getElementById('pp-nombre-manual'); if(mn) mn.value = '';
+    showChip(m.nombre, (m.grupo||'') + ' · ' + m.estatus, avatarColor(m.nombre), 'pp');
   }
 }
 
@@ -1549,9 +1566,6 @@ function renderRRToday() {
 function delMovRR(id) {
   if (!confirm('¿Eliminar este registro?')) return;
   saveMov(loadMov().filter(m => m.id !== id));
-  if(typeof window.fbDelMov==='function') window.fbDelMov(id);
-  const _d2=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
-  if(!_d2.includes(id)){_d2.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_d2));}
   renderRRToday();
   toast('🗑️ Registro eliminado', 'warn');
 }
@@ -1834,10 +1848,10 @@ function guardarEdicionMov() {
 
 function deleteMov(id) {
   if (!confirm('¿Eliminar este movimiento?')) return;
+  const _del=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
+  if(!_del.includes(id)){_del.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_del));}
   saveMov(loadMov().filter(m => m.id !== id));
   if(typeof window.fbDelMov==='function') window.fbDelMov(id);
-  const _d=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
-  if(!_d.includes(id)){_d.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_d));}
   renderMov();
   toast('🗑️ Eliminado', 'warn');
 }
@@ -2946,13 +2960,13 @@ function cierreGuardar() {
     </div>
   </div>
   <div id="header-today"></div>
-  <div id="sync-status" style="font-size:.65rem;color:var(--gold-lt);white-space:nowrap;"></div>
+  <div id="sync-status" style="font-size:.65rem;color:var(--gold-lt);white-space:nowrap;margin-left:8px;"></div>
 </header>
 
 <!-- ══════════ SIDEBAR (desktop) ══════════ -->
 <nav id="sidebar" class="hidden">
   <div class="sidebar-item active" data-page="inicio"    onclick="nav('inicio')">   <span class="si">🏠</span> Inicio</div>
-  <div class="sidebar-item"        data-page="colecta"   onclick="nav('colecta')">  <span class="si">🌍</span> Ofrenda Misionera</div>
+  <div class="sidebar-item"        data-page="colecta"   onclick="nav('colecta')">  <span class="si">🌍</span> Ofrenda Misionera 25-26</div>
   <div class="sidebar-item"        data-page="cierre"    onclick="nav('cierre')">   <span class="si">🏦</span> Cierre de culto</div>
   <div class="sidebar-item"        data-page="registro"  onclick="nav('registro')"> <span class="si">⚡</span> Registro rápido</div>
   <div class="sidebar-item"        data-page="egresos"   onclick="nav('egresos')">  <span class="si">📤</span> Egresos</div>
@@ -2987,6 +3001,7 @@ function cierreGuardar() {
       <div class="stat-hero-label">Saldo general disponible</div>
       <div class="stat-hero-value" id="dash-saldo">$0.00</div>
       <div class="stat-hero-sub" id="dash-date"></div>
+      <div id="dash-cat-breakdown" style="margin-top:12px;border-top:1px solid rgba(201,168,76,.2);padding-top:10px;"></div>
     </div>
 
     <div class="stat-row">
@@ -3010,7 +3025,7 @@ function cierreGuardar() {
 
     <div class="section-title">Acciones rápidas</div>
     <div class="action-grid">
-      <button class="action-btn" onclick="nav('colecta')"><span class="action-icon">🌍</span><span class="action-label">Ofrenda Misionera 25-26</span></button>
+      <button class="action-btn" onclick="nav('colecta')"><span class="action-icon">🌍</span><span class="action-label">Ofrenda Misionera</span></button>
       <button class="action-btn" onclick="nav('cierre')"><span class="action-icon">🏦</span><span class="action-label">Cierre de Culto</span></button>
       <button class="action-btn" onclick="nav('rep-diario')"><span class="action-icon">📅</span><span class="action-label">Reporte diario</span></button>
       <button class="action-btn" onclick="nav('egresos')"><span class="action-icon">📤</span><span class="action-label">Registrar egreso</span></button>
@@ -3018,7 +3033,7 @@ function cierreGuardar() {
       <button class="action-btn" onclick="nav('movimientos')"><span class="action-icon">📋</span><span class="action-label">Movimientos</span></button>
       <button class="action-btn" onclick="nav('reportes')"><span class="action-icon">📊</span><span class="action-label">Reportes</span></button>
       <button class="action-btn" onclick="nav('promesas')"><span class="action-icon">🎯</span><span class="action-label">Promesas</span></button>
-      <button class="action-btn action-btn-wide" onclick="nav('respaldo')"><span class="action-icon">💾</span><span class="action-label">Respaldo</span></button>
+      <button class="action-btn" onclick="nav('respaldo')" style="grid-column:span 2;flex-direction:row;gap:10px;padding:14px 20px;"><span class="action-icon">💾</span><span class="action-label" style="font-size:.85rem;">💾 Respaldo</span></button>
     </div>
 
     <div class="section-title">Últimas aportaciones de hoy</div>
@@ -3135,8 +3150,7 @@ function cierreGuardar() {
           <option>Servicios</option><option>Renta</option><option>Mantenimiento</option>
           <option>Compras</option><option>Ministerio de jóvenes</option>
           <option>Ministerio infantil</option><option>Misiones</option>
-          <option>Diezmos</option>
-            <option>Apoyo pastoral</option><option>Ayuda social</option>
+          <option>Apoyo pastoral</option><option>Ayuda social</option>
           <option>Papelería</option><option>Transporte</option><option>Construcción</option>
           <option>Limpieza</option><option>Equipo de sonido</option><option>Otros</option>
         </select>
@@ -3397,53 +3411,52 @@ function cierreGuardar() {
 
   <!-- ── COLECTA MISIONERA ── -->
   <main class="page" id="pg-colecta">
-    <div id="om-vista-lista">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <div class="page-title">🌍 Ofrenda Misionera</div>
-        <button class="btn btn-primary btn-sm" onclick="omNuevoCiclo()">+ Nuevo ciclo</button>
-      </div>
-      <div class="page-sub">Selecciona un ciclo para registrar ofrendas</div>
-      <div id="om-ciclos-lista"></div>
+  <div id="om-vista-lista">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div class="page-title">🌍 Ofrenda Misionera</div>
+      <button class="btn btn-primary btn-sm" onclick="omNuevoCiclo()">+ Nuevo ciclo</button>
     </div>
-    <div id="om-vista-detalle" style="display:none;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;" class="no-print">
-        <button class="btn btn-ghost btn-sm" onclick="omVolverLista()">← Volver</button>
-        <div style="flex:1;">
-          <div class="page-title" id="om-det-titulo" style="margin-bottom:0;font-size:1.1rem;"></div>
-          <div class="page-sub"  id="om-det-sub"    style="margin-bottom:0;"></div>
-        </div>
-        <button class="btn btn-ghost btn-sm no-print" onclick="window.print()">🖨️</button>
+    <div class="page-sub">Selecciona un ciclo para registrar ofrendas</div>
+    <div id="om-ciclos-lista"></div>
+  </div>
+  <div id="om-vista-detalle" style="display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;" class="no-print">
+      <button class="btn btn-ghost btn-sm" onclick="omVolverLista()">← Volver</button>
+      <div style="flex:1;">
+        <div class="page-title" id="om-det-titulo" style="margin-bottom:0;font-size:1.1rem;"></div>
+        <div class="page-sub"  id="om-det-sub"    style="margin-bottom:0;"></div>
       </div>
-      <div class="card no-print" style="margin-bottom:12px;">
-        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-          <div class="form-group" style="flex:1;min-width:150px;margin-bottom:0;">
-            <label class="form-label">Fecha del culto</label>
-            <input type="date" id="om-fecha" class="form-control" onchange="omRenderDetalle()">
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Frecuencia</label>
-            <div style="display:flex;gap:6px;">
-              <button class="toggle-btn sel" id="om-f-sem"  onclick="omSetFreq('semanal',this)">Semanal</button>
-              <button class="toggle-btn"     id="om-f-quin" onclick="omSetFreq('quincenal',this)">Quincenal</button>
-            </div>
-          </div>
-          <button class="btn btn-danger btn-sm no-print" onclick="omGuardarColecta()" style="align-self:flex-end;">💾 Guardar colecta</button>
+      <button class="btn btn-ghost btn-sm no-print" onclick="window.print()">🖨️</button>
+    </div>
+    <div class="card no-print" style="margin-bottom:12px;">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:150px;margin-bottom:0;">
+          <label class="form-label">Fecha del culto</label>
+          <input type="date" id="om-fecha" class="form-control" onchange="omRenderDetalle()">
         </div>
-      </div>
-      <div id="om-resumen" style="margin-bottom:8px;"></div>
-      <div class="col-progress-bar" style="margin-bottom:12px;"><div class="col-progress-fill" id="om-prog" style="width:0%"></div></div>
-      <div class="section-title" style="margin-top:4px;">Hermanos</div>
-      <div id="om-lista-sem"></div>
-      <div id="om-lista-quin"></div>
-      <div class="card no-print" style="margin-top:4px;">
-        <div class="section-title" style="margin:0 0 8px;">Otros aportantes</div>
-        <div id="om-extras"></div>
-        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;" onclick="openModal('m-om-extra')">+ Agregar visitante / otro</button>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Frecuencia</label>
+          <div style="display:flex;gap:6px;">
+            <button class="toggle-btn sel" id="om-f-sem"  onclick="omSetFreq('semanal',this)">Semanal</button>
+            <button class="toggle-btn"     id="om-f-quin" onclick="omSetFreq('quincenal',this)">Quincenal</button>
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm no-print" onclick="omGuardarColecta()" style="align-self:flex-end;">💾 Guardar colecta</button>
       </div>
     </div>
-  </main>
+    <div id="om-resumen" style="margin-bottom:8px;"></div>
+    <div class="col-progress-bar" style="margin-bottom:12px;"><div class="col-progress-fill" id="om-prog" style="width:0%"></div></div>
+    <div id="om-lista-sem"></div>
+    <div id="om-lista-quin"></div>
+    <div class="card no-print" style="margin-top:4px;">
+      <div class="stitle" style="margin:0 0 8px;">Otros aportantes</div>
+      <div id="om-extras"></div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px;" onclick="openModal('m-om-extra')">+ Agregar visitante / otro</button>
+    </div>
+  </div>
+</main>
 
-
+  <!-- ── CIERRE DE CULTO ── -->
   <main class="page" id="pg-cierre">
     <div class="page-title">🏦 Cierre de Culto</div>
     <div class="page-sub">Registra los totales del conteo físico al finalizar</div>
@@ -4193,14 +4206,14 @@ function promExportCSV() {
 </script>
 
 
-<!-- MODAL: NUEVO CICLO -->
+<!-- MODAL: NUEVO CICLO MISIONERO -->
 <div class="modal-bg" id="m-om-ciclo">
   <div class="modal">
     <div class="modal-handle"></div>
     <h3 id="m-om-ciclo-title">Nuevo ciclo misionero</h3>
     <div class="form-group">
       <label class="form-label">Nombre del ciclo</label>
-      <input type="text" id="omc-nombre" class="form-control" placeholder="Ej: 2025-2026, 2026-2027">
+      <input type="text" id="omc-nombre" class="form-control" placeholder="Ej: 2025-2026">
     </div>
     <div class="form-group">
       <label class="form-label">Fecha de inicio <span>(opcional)</span></label>
@@ -4212,9 +4225,9 @@ function promExportCSV() {
     </div>
     <div class="form-group">
       <label class="form-label">Estado</label>
-      <div style="display:flex;gap:8px;" id="omc-estado">
-        <button class="toggle-btn sel" data-v="activo"  onclick="selMet(this,'omc-estado')">✅ Activo</button>
-        <button class="toggle-btn"     data-v="cerrado" onclick="selMet(this,'omc-estado')">🔒 Cerrado</button>
+      <div id="omc-estado" style="display:flex;gap:8px;">
+        <button class="toggle-btn sel" data-v="activo"  onclick="omSelEstado(this)">✅ Activo</button>
+        <button class="toggle-btn"     data-v="cerrado" onclick="omSelEstado(this)">🔒 Cerrado</button>
       </div>
     </div>
     <input type="hidden" id="omc-id">
@@ -4232,7 +4245,7 @@ function promExportCSV() {
     <h3 id="m-om-ajuste-title">Ajustar monto</h3>
     <div class="form-group">
       <label class="form-label">Monto recibido ($)</label>
-      <input type="number" id="om-aj-monto" class="form-control" inputmode="decimal" step="0.01" min="0"
+      <input type="number" id="om-aj-monto" class="form-control" inputmode="decimal" step="0.01"
         style="font-size:1.6rem;font-family:var(--mono);font-weight:800;text-align:right;">
     </div>
     <div class="form-group">
@@ -4264,7 +4277,7 @@ function promExportCSV() {
     <div class="form-group">
       <label class="form-label">Monto ($)</label>
       <input type="number" id="om-ex-monto" class="form-control" placeholder="0.00"
-        inputmode="decimal" step="0.01" min="0.01"
+        inputmode="decimal" step="0.01"
         style="font-size:1.2rem;font-family:var(--mono);font-weight:700;text-align:right;">
     </div>
     <div class="form-group">
@@ -4278,11 +4291,12 @@ function promExportCSV() {
   </div>
 </div>
 
-
 <script>
-/* OFRENDA MISIONERA - Módulo con ciclos */
-const K_OM = 'ibfilm_om_ciclos_v1';
-const PSEM = [
+/* ═══════════════════════════════════════
+   OFRENDA MISIONERA CON CICLOS
+═══════════════════════════════════════ */
+const K_OM='ibfilm_om_v1';
+const PSEM=[
   {n:'Pr. Moisés',p:250},{n:'Mary',p:220},{n:'Yaretzi',p:150},{n:'Leila',p:50},
   {n:'Isaí',p:50},{n:'Junior',p:100},{n:'Jazive',p:100},{n:'Santos',p:150},
   {n:'Cresencio',p:100},{n:'Martha',p:250},{n:'Yareli',p:150},{n:'Elvira',p:200},
@@ -4290,103 +4304,143 @@ const PSEM = [
   {n:'Maximina',p:200},{n:'Roberto',p:25},{n:'América',p:25},{n:'Alan',p:50},
   {n:'Abdiel',p:20},{n:'Guillermo',p:150},{n:'Lourdes',p:50},{n:'Amairani',p:10},{n:'Martha M.',p:100}
 ];
-const PQUIN = [
+const PQUIN=[
   {n:'Enrique',p:200},{n:'Fernanda',p:200},{n:'Daniel',p:150},{n:'Sofía',p:70},
   {n:'Cecilia',p:250},{n:'Josué',p:300},{n:'Brenda',p:100},{n:'Elisa',p:250},{n:'Juanita',p:100}
 ];
-let omCicloActual=null,omEstado={},omFreq='semanal',omExtras=[];
 
-function loadOM(){try{return JSON.parse(localStorage.getItem(K_OM)||'[]');}catch{return[];}}
+var omCicloActual=null, omEstado={}, omFreq='semanal', omExtras=[];
+
+function loadOM(){try{return JSON.parse(localStorage.getItem(K_OM)||'[]');}catch(e){return [];}}
 function saveOM(d){
   localStorage.setItem(K_OM,JSON.stringify(d));
-  if(typeof window.fbSaveOM==='function') d.forEach(ev=>window.fbSaveOM(ev));
+  if(typeof window.fbSaveOM==='function') d.forEach(function(c){window.fbSaveOM(c);});
+}
+
+/* Estado botones */
+function omSelEstado(btn){
+  document.querySelectorAll('#omc-estado button').forEach(function(b){b.classList.remove('sel');});
+  btn.classList.add('sel');
 }
 
 function initOfrenda(){
   omCicloActual=null;
-  document.getElementById('om-vista-lista').style.display='';
-  document.getElementById('om-vista-detalle').style.display='none';
+  var vl=document.getElementById('om-vista-lista');
+  var vd=document.getElementById('om-vista-detalle');
+  if(vl) vl.style.display='';
+  if(vd) vd.style.display='none';
   omRenderLista();
 }
 
 function omRenderLista(){
-  const ciclos=loadOM();
-  const el=document.getElementById('om-ciclos-lista');
+  var ciclos=loadOM();
+  var el=document.getElementById('om-ciclos-lista');
   if(!el) return;
   if(!ciclos.length){
-    el.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--text-3);">'+
-      '<div style="font-size:2.5rem;opacity:.4;margin-bottom:12px;">🌍</div>'+
-      '<p>Sin ciclos registrados.</p>'+
-      '<button class="btn btn-primary" style="margin-top:16px;" onclick="omNuevoCiclo()">+ Crear primer ciclo</button></div>';
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text-3);">'+
+      '<div style="font-size:2.5rem;opacity:.4;margin-bottom:10px;">🌍</div>'+
+      '<p>Sin ciclos. Toca &quot;+ Nuevo ciclo&quot;.</p>'+
+      '<button class="btn btn-primary" style="margin-top:14px;" onclick="omNuevoCiclo()">Crear ciclo 2025-2026</button>'+
+      '</div>';
     return;
   }
   el.innerHTML='';
-  ciclos.forEach(function(ciclo){
-    const movsCiclo=loadMov().filter(function(m){
-      return m.tipo==='Ingreso'&&(m.concepto===('Ofrenda Misionera '+ciclo.nombre)||m.categoria===('Ofrenda Misionera '+ciclo.nombre));
-    });
-    const total=movsCiclo.reduce(function(s,m){return s+m.monto;},0);
-    const activo=ciclo.estado==='activo';
-    const card=document.createElement('div');
-    card.className='card';
-    card.style.cssText='margin-bottom:10px;cursor:pointer;border-left:4px solid '+(activo?'var(--green)':'var(--text-3)');
-    card.onclick=function(){ omAbrirCiclo(ciclo.id); };
-    card.innerHTML=
-      '<div style="display:flex;align-items:center;gap:12px;">'+
-      '<div style="font-size:1.8rem;">🌍</div>'+
-      '<div style="flex:1;"><div style="font-weight:800;font-size:1rem;color:var(--navy);">Ofrenda Misionera '+ciclo.nombre+'</div>'+
-      '<div style="font-size:.75rem;color:var(--text-3);margin-top:2px;">'+(ciclo.inicio?'Inicio: '+fdl(ciclo.inicio):'')+(ciclo.fin?' · Cierre: '+fdl(ciclo.fin):'')+'</div></div>'+
-      '<div style="text-align:right;"><div style="font-family:var(--mono);font-weight:800;font-size:1rem;color:var(--green);">'+fmt(total)+'</div>'+
-      '<span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:700;background:'+(activo?'var(--green-lt)':'var(--cream-2)')+';color:'+(activo?'var(--green-dk)':'var(--text-3)')+';">'+(activo?'Activo':'Cerrado')+'</span></div></div>'+
-      '<div style="display:flex;gap:6px;margin-top:10px;">'+
-      '<button class="btn btn-ghost btn-xs om-edit-btn" data-id="'+ciclo.id+'">✏️ Editar</button>'+
-      '<button class="btn btn-ghost btn-xs om-del-btn" data-id="'+ciclo.id+'" style="color:var(--red);">🗑️</button>'+
-      '</div>';
-    card.querySelector('.om-edit-btn').onclick = function(e){ e.stopPropagation(); omEditarCiclo(this.dataset.id); };
-    card.querySelector('.om-del-btn').onclick  = function(e){ e.stopPropagation(); omEliminarCiclo(this.dataset.id); };
-    el.appendChild(card);
-  });
+  for(var ci=0;ci<ciclos.length;ci++){
+    (function(ciclo){
+      var movs=loadMov().filter(function(m){
+        var cat='Ofrenda Misionera '+ciclo.nombre;
+        return m.tipo==='Ingreso'&&(m.concepto===cat||m.categoria===cat);
+      });
+      var total=movs.reduce(function(s,m){return s+m.monto;},0);
+      var activo=ciclo.estado==='activo';
+      var card=document.createElement('div');
+      card.className='card';
+      card.style.marginBottom='10px';
+      card.style.cursor='pointer';
+      card.style.borderLeft='4px solid '+(activo?'var(--green)':'var(--text-3)');
+      card.innerHTML=
+        '<div style="display:flex;align-items:center;gap:12px;">'+
+        '<div style="font-size:1.8rem;">🌍</div>'+
+        '<div style="flex:1;">'+
+          '<div style="font-weight:800;color:var(--navy);">Ofrenda Misionera '+escHtml(ciclo.nombre)+'</div>'+
+          '<div style="font-size:.75rem;color:var(--text-3);">'+(ciclo.inicio?'Inicio: '+fdl(ciclo.inicio):'Sin fecha inicio')+'</div>'+
+        '</div>'+
+        '<div style="text-align:right;">'+
+          '<div style="font-family:var(--mono);font-weight:800;color:var(--green);">'+fmt(total)+'</div>'+
+          '<span style="font-size:.7rem;font-weight:700;color:'+(activo?'var(--green)':'var(--text-3)')+';">'+(activo?'● Activo':'○ Cerrado')+'</span>'+
+        '</div></div>'+
+        '<div style="display:flex;gap:6px;margin-top:10px;" id="card-btns-'+ci+'"></div>';
+      var btnEdit=document.createElement('button');
+      btnEdit.className='btn btn-ghost btn-xs';
+      btnEdit.textContent='✏️ Editar';
+      btnEdit.onclick=function(e){e.stopPropagation();omEditarCiclo(ciclo.id);};
+      var btnDel=document.createElement('button');
+      btnDel.className='btn btn-ghost btn-xs';
+      btnDel.style.color='var(--red)';
+      btnDel.textContent='🗑️';
+      btnDel.onclick=function(e){e.stopPropagation();omEliminarCiclo(ciclo.id);};
+      card.querySelector('[id^="card-btns"]').appendChild(btnEdit);
+      card.querySelector('[id^="card-btns"]').appendChild(btnDel);
+      card.addEventListener('click',function(){omAbrirCiclo(ciclo.id);});
+      el.appendChild(card);
+    })(ciclos[ci]);
+  }
 }
 
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 function omNuevoCiclo(){
-  ['omc-nombre','omc-inicio','omc-fin'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('omc-nombre').value='';
+  document.getElementById('omc-inicio').value='';
+  document.getElementById('omc-fin').value='';
   document.getElementById('omc-id').value='';
   document.getElementById('m-om-ciclo-title').textContent='Nuevo ciclo misionero';
-  document.querySelectorAll('#omc-estado button').forEach(b=>{
-    b.classList.remove('sel','on');
-    if(b.dataset.v==='activo') b.classList.add('sel','on');
+  document.querySelectorAll('#omc-estado button').forEach(function(b){
+    b.classList.remove('sel');
+    if(b.dataset.v==='activo') b.classList.add('sel');
   });
   openModal('m-om-ciclo');
 }
 
 function omEditarCiclo(id){
-  const ciclo=loadOM().find(c=>c.id===id); if(!ciclo) return;
+  var ciclos=loadOM();
+  var ciclo=null;
+  for(var i=0;i<ciclos.length;i++){if(ciclos[i].id===id){ciclo=ciclos[i];break;}}
+  if(!ciclo) return;
   document.getElementById('omc-nombre').value=ciclo.nombre||'';
   document.getElementById('omc-inicio').value=ciclo.inicio||'';
   document.getElementById('omc-fin').value=ciclo.fin||'';
   document.getElementById('omc-id').value=id;
   document.getElementById('m-om-ciclo-title').textContent='Editar ciclo';
-  const est=ciclo.estado||'activo';
-  document.querySelectorAll('#omc-estado button').forEach(b=>{
-    b.classList.remove('sel','on');
-    if(b.dataset.v===est) b.classList.add('sel','on');
+  var est=ciclo.estado||'activo';
+  document.querySelectorAll('#omc-estado button').forEach(function(b){
+    b.classList.remove('sel');
+    if(b.dataset.v===est) b.classList.add('sel');
   });
   openModal('m-om-ciclo');
 }
 
 function omGuardarCiclo(){
-  const nombre=document.getElementById('omc-nombre').value.trim();
-  if(!nombre){toast('Escribe el nombre del ciclo, ej: 2025-2026','warn');return;}
-  const editId=document.getElementById('omc-id').value;
-  const estadoBtn=document.querySelector('#omc-estado button.sel')||document.querySelector('#omc-estado button.on')||document.querySelector('#omc-estado button');
-  const estado=estadoBtn?estadoBtn.dataset.v:'activo';
-  const ciclos=loadOM();
-  const obj={nombre,inicio:document.getElementById('omc-inicio').value,fin:document.getElementById('omc-fin').value,estado};
+  var nombre=document.getElementById('omc-nombre').value.trim();
+  if(!nombre){toast('Escribe el nombre del ciclo','warn');return;}
+  var editId=document.getElementById('omc-id').value;
+  var estadoEl=document.querySelector('#omc-estado button.sel');
+  var estado=estadoEl?estadoEl.dataset.v:'activo';
+  var ciclos=loadOM();
+  var obj={
+    nombre:nombre,
+    inicio:document.getElementById('omc-inicio').value,
+    fin:document.getElementById('omc-fin').value,
+    estado:estado
+  };
   if(editId){
-    const i=ciclos.findIndex(c=>c.id===editId);
-    if(i>=0) Object.assign(ciclos[i],obj); else ciclos.push({id:editId,...obj});
+    var found=false;
+    for(var i=0;i<ciclos.length;i++){
+      if(ciclos[i].id===editId){Object.assign(ciclos[i],obj);found=true;break;}
+    }
+    if(!found) ciclos.push(Object.assign({id:editId},obj));
   } else {
-    ciclos.push({id:uid(),...obj});
+    ciclos.push(Object.assign({id:uid()},obj));
   }
   saveOM(ciclos);
   closeModal('m-om-ciclo');
@@ -4395,169 +4449,217 @@ function omGuardarCiclo(){
 }
 
 function omEliminarCiclo(id){
-  const ciclo=loadOM().find(c=>c.id===id); if(!ciclo) return;
-  if(!confirm('Eliminar el ciclo "'+ciclo.nombre+'"? Los movimientos NO se eliminarán.')) return;
-  saveOM(loadOM().filter(c=>c.id!==id));
+  var ciclos=loadOM();
+  var nombre='';
+  for(var i=0;i<ciclos.length;i++){if(ciclos[i].id===id){nombre=ciclos[i].nombre;break;}}
+  if(!confirm('Eliminar el ciclo "'+nombre+'"? Los movimientos NO se eliminarán.')) return;
+  saveOM(ciclos.filter(function(c){return c.id!==id;}));
   omRenderLista();
   toast('Ciclo eliminado','warn');
 }
 
 function omAbrirCiclo(id){
-  omCicloActual=id; omEstado={}; omExtras={}; omFreq='semanal';
-  document.getElementById('om-vista-lista').style.display='none';
-  document.getElementById('om-vista-detalle').style.display='';
-  const fe=document.getElementById('om-fecha'); if(fe&&!fe.value) fe.value=hoy();
-  document.querySelectorAll('#om-f-sem,#om-f-quin').forEach(b=>b.classList.remove('sel','on'));
-  const s=document.getElementById('om-f-sem'); if(s) s.classList.add('sel','on');
+  omCicloActual=id; omEstado={}; omExtras=[]; omFreq='semanal';
+  var vl=document.getElementById('om-vista-lista');
+  var vd=document.getElementById('om-vista-detalle');
+  if(vl) vl.style.display='none';
+  if(vd) vd.style.display='';
+  var fe=document.getElementById('om-fecha');
+  if(fe&&!fe.value) fe.value=hoy();
+  var fs=document.getElementById('om-f-sem'), fq=document.getElementById('om-f-quin');
+  if(fs){fs.classList.add('sel');fs.classList.remove('');}
+  if(fq) fq.classList.remove('sel');
   omRenderDetalle();
 }
 
 function omVolverLista(){
   omCicloActual=null;
-  document.getElementById('om-vista-lista').style.display='';
-  document.getElementById('om-vista-detalle').style.display='none';
+  var vl=document.getElementById('om-vista-lista');
+  var vd=document.getElementById('om-vista-detalle');
+  if(vl) vl.style.display='';
+  if(vd) vd.style.display='none';
   omRenderLista();
 }
 
 function omSetFreq(f,btn){
   omFreq=f;
-  document.querySelectorAll('#om-f-sem,#om-f-quin').forEach(b=>b.classList.remove('sel','on'));
-  btn.classList.add('sel','on');
+  var fs=document.getElementById('om-f-sem'), fq=document.getElementById('om-f-quin');
+  if(fs) fs.classList.toggle('sel',f==='semanal');
+  if(fq) fq.classList.toggle('sel',f==='quincenal');
   omRenderDetalle();
 }
 
 function omRenderDetalle(){
-  const ciclos=loadOM(); const ciclo=ciclos.find(c=>c.id===omCicloActual);
+  var ciclos=loadOM();
+  var ciclo=null;
+  for(var i=0;i<ciclos.length;i++){if(ciclos[i].id===omCicloActual){ciclo=ciclos[i];break;}}
   if(!ciclo){omVolverLista();return;}
-  const lista=omFreq==='semanal'?PSEM:PQUIN;
-  const meta=lista.reduce((s,m)=>s+m.p,0);
-  let totalPag=0,cntPag=0;
-  lista.forEach(m=>{const e=omEstado[m.n];if(e&&(e.est==='pag'||e.est==='ajus')){totalPag+=e.monto;cntPag++;}});
-  const totalExt=(omExtras||[]).reduce((s,e)=>s+e.monto,0);
-  const grand=totalPag+totalExt;
-  const pct=meta>0?Math.min(100,Math.round(grand/meta*100)):0;
-  document.getElementById('om-det-titulo').textContent='Ofrenda Misionera '+ciclo.nombre;
-  document.getElementById('om-det-sub').textContent=ciclo.estado==='activo'?'Ciclo activo':'Ciclo cerrado';
-  const prog=document.getElementById('om-prog'); if(prog) prog.style.width=pct+'%';
-  document.getElementById('om-resumen').innerHTML=
+
+  var lista=omFreq==='semanal'?PSEM:PQUIN;
+  var meta=lista.reduce(function(s,m){return s+m.p;},0);
+  var totalPag=0, cntPag=0;
+  for(var j=0;j<lista.length;j++){
+    var e=omEstado[lista[j].n];
+    if(e&&(e.est==='pag'||e.est==='ajus')){totalPag+=e.monto;cntPag++;}
+  }
+  var totalExt=omExtras.reduce(function(s,e){return s+e.monto;},0);
+  var grand=totalPag+totalExt;
+  var pct=meta>0?Math.min(100,Math.round(grand/meta*100)):0;
+
+  var tit=document.getElementById('om-det-titulo');
+  var sub=document.getElementById('om-det-sub');
+  if(tit) tit.textContent='Ofrenda Misionera '+ciclo.nombre;
+  if(sub) sub.textContent=ciclo.estado==='activo'?'Ciclo activo':'Ciclo cerrado';
+  var prog=document.getElementById('om-prog');
+  if(prog) prog.style.width=pct+'%';
+
+  var res=document.getElementById('om-resumen');
+  if(res) res.innerHTML=
     '<div class="col-resumen-card">'+
-    '<div class="crk crk-full"><div class="crk-label">Total recibido</div><div class="crk-value" style="font-size:1.8rem;">'+fmt(grand)+'</div></div>'+
+    '<div class="crk crk-full"><div class="crk-label">Total recibido</div>'+
+    '<div class="crk-value" style="font-size:1.8rem;">'+fmt(grand)+'</div></div>'+
     '<div class="crk"><div class="crk-label">Pagaron</div><div class="crk-value green">'+cntPag+' / '+lista.length+'</div></div>'+
     '<div class="crk"><div class="crk-label">Faltan</div><div class="crk-value red">'+(lista.length-cntPag)+'</div></div>'+
     '<div class="crk"><div class="crk-label">Meta</div><div class="crk-value">'+fmt(meta)+'</div></div>'+
     '</div>';
-  function appendLista(elId, arr, label){
-    const cont=document.getElementById(elId); if(!cont) return;
-    cont.innerHTML='<div class="section-title">'+label+'</div>';
-    arr.forEach(function(m){ cont.appendChild(omItemHTML(m)); });
+
+  var semEl=document.getElementById('om-lista-sem');
+  var quinEl=document.getElementById('om-lista-quin');
+  if(semEl) semEl.innerHTML='';
+  if(quinEl) quinEl.innerHTML='';
+  if(omFreq==='semanal'&&semEl){
+    semEl.innerHTML='<div class="stitle">Promesa semanal — '+cntPag+' / '+PSEM.length+' pagaron</div>';
+    for(var k=0;k<PSEM.length;k++) semEl.appendChild(omMakeItem(PSEM[k]));
+  } else if(quinEl){
+    quinEl.innerHTML='<div class="stitle">Promesa quincenal — '+cntPag+' / '+PQUIN.length+' pagaron</div>';
+    for(var k=0;k<PQUIN.length;k++) quinEl.appendChild(omMakeItem(PQUIN[k]));
   }
-  if(omFreq==='semanal'){
-    appendLista('om-lista-sem', PSEM, 'Promesa semanal');
-    const qel=document.getElementById('om-lista-quin'); if(qel) qel.innerHTML='';
-  } else {
-    const sel=document.getElementById('om-lista-sem'); if(sel) sel.innerHTML='';
-    appendLista('om-lista-quin', PQUIN, 'Promesa quincenal');
+
+  var extEl=document.getElementById('om-extras');
+  if(extEl){
+    extEl.innerHTML='';
+    for(var ei=0;ei<omExtras.length;ei++){
+      (function(ex,idx){
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--cream);border:1px solid var(--border-2);border-radius:var(--r);margin-bottom:6px;';
+        row.innerHTML='<div style="flex:1;font-weight:600;font-size:.88rem;">'+escHtml(ex.nombre)+'</div>'+
+          '<div style="font-family:var(--mono);font-weight:700;color:var(--green);">'+fmt(ex.monto)+'</div>';
+        var xBtn=document.createElement('span');
+        xBtn.textContent='×';
+        xBtn.style.cssText='color:var(--text-3);cursor:pointer;font-size:1.2rem;padding:0 6px;';
+        xBtn.onclick=function(){omDelExtra(idx);};
+        row.appendChild(xBtn);
+        extEl.appendChild(row);
+      })(omExtras[ei],ei);
+    }
   }
-  const extEl=document.getElementById('om-extras');
-  extEl.innerHTML=(omExtras||[]).map((e,i)=>
-    '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--cream);border:1px solid var(--border-2);border-radius:var(--r);margin-bottom:6px;">'+
-    '<div style="flex:1;font-weight:600;font-size:.88rem;">'+e.nombre+'</div>'+
-    '<div style="font-family:var(--mono);font-weight:700;color:var(--green);">'+fmt(e.monto)+'</div>'+
-    '<span style="color:var(--text-3);cursor:pointer;font-size:1.1rem;padding:2px 5px;" onclick="omDelExtra('+i+')">×</span>'+
-    '</div>').join('');
 }
 
-function omItemHTML(m){
-  const e=omEstado[m.n]||{est:'pend',monto:m.p};
-  const cls=e.est==='pag'?'pagado':e.est==='ajus'?'ajustado':'';
-  const ic=e.est==='pag'?'✅':e.est==='ajus'?'✏️':'⬜';
-  const amt=e.est==='pend'?fmt(m.p):fmt(e.monto);
-  const div=document.createElement('div');
-  div.className='colecta-item '+cls;
-  div.dataset.nombre=m.n;
-  div.dataset.promesa=m.p;
-  div.onclick=function(){ omTocar(this.dataset.nombre, parseFloat(this.dataset.promesa)); };
-  div.oncontextmenu=function(ev){ ev.preventDefault(); omAjustar(this.dataset.nombre, parseFloat(this.dataset.promesa)); };
+function omMakeItem(m){
+  var e=omEstado[m.n]||{est:'pend',monto:m.p};
+  var pag=e.est==='pag'||e.est==='ajus';
+  var div=document.createElement('div');
+  div.className='colecta-item'+(e.est==='pag'?' pagado':e.est==='ajus'?' ajustado':'');
+  div.style.userSelect='none';
   div.innerHTML=
-    '<div class="col-avatar" style="background:'+avatarColor(m.n)+';">'+initiales(m.n)+'</div>'+
-    '<div class="col-info"><div class="col-name">'+m.n+'</div>'+
-    '<div class="col-promesa">Promesa: '+fmt(m.p)+(e.obs?' · '+e.obs:'')+'</div></div>'+
-    '<div class="col-right"><div class="col-amount">'+amt+'</div><span style="font-size:1.3rem;">'+ic+'</span>'+
-    '<div class="col-actions">'+
-    '<button class="col-action-btn om-ajuste-btn" data-nombre="'+m.n.replace(/"/g,'&quot;')+'" data-promesa="'+m.p+'">✏️</button>'+
-    '<button class="col-action-btn om-desmarcar-btn" data-nombre="'+m.n.replace(/"/g,'&quot;')+'">↩️</button>'+
-    '</div></div>';
-  div.querySelector('.om-ajuste-btn').onclick=function(e){ e.stopPropagation(); omAjustar(this.dataset.nombre,parseFloat(this.dataset.promesa)); };
-  div.querySelector('.om-desmarcar-btn').onclick=function(e){ e.stopPropagation(); omDesmarcar(this.dataset.nombre); };
+    '<div class="col-avatar" style="background:'+(pag?'':avatarColor(m.n))+';">'+initiales(m.n)+'</div>'+
+    '<div class="col-info">'+
+      '<div class="col-name">'+escHtml(m.n)+'</div>'+
+      '<div class="col-promesa">Promesa: '+fmt(m.p)+(e.obs?' · '+escHtml(e.obs):'')+'</div>'+
+    '</div>'+
+    '<div class="col-right">'+
+      '<div class="col-amount">'+(e.est==='pend'?fmt(m.p):fmt(e.monto))+'</div>'+
+      '<span style="font-size:1.3rem;">'+(e.est==='pag'?'✅':e.est==='ajus'?'✏️':'⬜')+'</span>'+
+      '<div class="col-actions" style="display:'+(pag?'flex':'none')+';">'+
+        '<button class="col-action-btn om-aj" data-n="" data-p="'+m.p+'">✏️</button>'+
+        '<button class="col-action-btn om-dm" data-n="">↩️</button>'+
+      '</div>'+
+    '</div>';
+  div.querySelector('.om-aj').dataset.n=m.n;
+  div.querySelector('.om-dm').dataset.n=m.n;
+  div.querySelector('.om-aj').onclick=function(ev){ev.stopPropagation();omAjustar(this.dataset.n,parseFloat(this.dataset.p));};
+  div.querySelector('.om-dm').onclick=function(ev){ev.stopPropagation();omDesmarcar(this.dataset.n);};
+  div.onclick=function(){omTocar(m.n,m.p);};
+  div.oncontextmenu=function(ev){ev.preventDefault();omAjustar(m.n,m.p);};
   return div;
 }
 
 function omTocar(nombre,promesa){
-  const e=omEstado[nombre];
-  if(!e||e.est==='pend'){omEstado[nombre]={est:'pag',monto:promesa,obs:''};if(navigator.vibrate)navigator.vibrate(40);}
-  else{omAjustar(nombre,promesa);return;}
-  omRenderDetalle();
+  var e=omEstado[nombre];
+  if(!e||e.est==='pend'){
+    omEstado[nombre]={est:'pag',monto:promesa,obs:''};
+    if(navigator.vibrate) navigator.vibrate(40);
+    omRenderDetalle();
+  } else {
+    omAjustar(nombre,promesa);
+  }
 }
-function omLongPress(ev,nombre,promesa){ev.preventDefault();omAjustar(nombre,promesa);}
 
 function omAjustar(nombre,promesa){
-  const e=omEstado[nombre]||{};
   document.getElementById('m-om-ajuste-title').textContent='✏️ '+nombre;
-  document.getElementById('om-aj-monto').value=e.monto||promesa;
-  document.getElementById('om-aj-obs').value=e.obs||'';
+  document.getElementById('om-aj-monto').value=omEstado[nombre]?omEstado[nombre].monto:promesa;
+  document.getElementById('om-aj-obs').value=omEstado[nombre]?omEstado[nombre].obs||'':'';
   document.getElementById('om-aj-nombre').value=nombre;
   document.getElementById('om-aj-promesa').value=promesa;
   openModal('m-om-ajuste');
 }
+
 function omConfirmarAjuste(){
-  const nombre=document.getElementById('om-aj-nombre').value;
-  const promesa=parseFloat(document.getElementById('om-aj-promesa').value);
-  const monto=parseFloat(document.getElementById('om-aj-monto').value);
-  const obs=document.getElementById('om-aj-obs').value.trim();
+  var nombre=document.getElementById('om-aj-nombre').value;
+  var promesa=parseFloat(document.getElementById('om-aj-promesa').value);
+  var monto=parseFloat(document.getElementById('om-aj-monto').value);
+  var obs=document.getElementById('om-aj-obs').value.trim();
   if(!monto||monto<=0){toast('Ingresa un monto válido','warn');return;}
-  omEstado[nombre]={est:monto!==promesa?'ajus':'pag',monto,obs};
+  omEstado[nombre]={est:monto===promesa?'pag':'ajus',monto:monto,obs:obs};
   closeModal('m-om-ajuste');
   omRenderDetalle();
 }
+
 function omDesmarcar(n){omEstado[n]={est:'pend',monto:0,obs:''};omRenderDetalle();}
-function omDelExtra(i){if(omExtras){omExtras.splice(i,1);omRenderDetalle();}}
+function omDelExtra(i){omExtras.splice(i,1);omRenderDetalle();}
 
 function omGuardarExtra(){
-  const nombre=document.getElementById('om-ex-nombre').value.trim()||'Anónimo';
-  const monto=parseFloat(document.getElementById('om-ex-monto').value);
-  const obs=document.getElementById('om-ex-obs').value.trim();
+  var nombre=document.getElementById('om-ex-nombre').value.trim()||'Anónimo';
+  var monto=parseFloat(document.getElementById('om-ex-monto').value);
+  var obs=document.getElementById('om-ex-obs').value.trim();
   if(!monto||monto<=0){toast('Ingresa un monto válido','warn');return;}
-  if(!omExtras) omExtras=[];
-  omExtras.push({nombre,monto,obs});
+  omExtras.push({nombre:nombre,monto:monto,obs:obs});
   document.getElementById('om-ex-nombre').value='';
   document.getElementById('om-ex-monto').value='';
   document.getElementById('om-ex-obs').value='';
   closeModal('m-om-extra');
   omRenderDetalle();
-  toast(nombre+' — '+fmt(monto)+' agregado');
+  toast(nombre+' agregado: '+fmt(monto));
 }
 
 function omGuardarColecta(){
-  const ciclo=loadOM().find(c=>c.id===omCicloActual); if(!ciclo) return;
-  const fecha=document.getElementById('om-fecha').value;
+  var ciclos=loadOM();
+  var ciclo=null;
+  for(var i=0;i<ciclos.length;i++){if(ciclos[i].id===omCicloActual){ciclo=ciclos[i];break;}}
+  if(!ciclo) return;
+  var fecha=document.getElementById('om-fecha').value;
   if(!fecha){toast('Selecciona la fecha','warn');return;}
-  const lista=omFreq==='semanal'?PSEM:PQUIN;
-  const pagados=lista.filter(m=>{const e=omEstado[m.n];return e&&(e.est==='pag'||e.est==='ajus');});
-  if(!pagados.length&&!(omExtras&&omExtras.length)){toast('No hay aportaciones marcadas','warn');return;}
-  const total=pagados.reduce((s,m)=>s+omEstado[m.n].monto,0)+((omExtras||[]).reduce((s,e)=>s+e.monto,0));
-  const nombreCiclo='Ofrenda Misionera '+ciclo.nombre;
-  if(!confirm('Guardar colecta? '+fmt(total)+' de '+(pagados.length+(omExtras||[]).length)+' aportantes. Fecha: '+fecha)) return;
-  const mov=loadMov(); const h=hora();
-  pagados.forEach(m=>{
-    const e=omEstado[m.n];
-    const rec={id:uid(),tipo:'Ingreso',fecha,hora:h,concepto:nombreCiclo,categoria:nombreCiclo,
+  var lista=omFreq==='semanal'?PSEM:PQUIN;
+  var pagados=lista.filter(function(m){var e=omEstado[m.n];return e&&(e.est==='pag'||e.est==='ajus');});
+  if(!pagados.length&&!omExtras.length){toast('No hay aportaciones marcadas','warn');return;}
+  var total=0;
+  pagados.forEach(function(m){total+=omEstado[m.n].monto;});
+  omExtras.forEach(function(e){total+=e.monto;});
+  var cnt=pagados.length+omExtras.length;
+  if(!confirm('Guardar colecta de '+fmt(total)+' ('+cnt+' aportantes)? Fecha: '+fecha)) return;
+  var mov=loadMov();
+  var h=hora();
+  var cat='Ofrenda Misionera '+ciclo.nombre;
+  pagados.forEach(function(m){
+    var e=omEstado[m.n];
+    var rec={id:uid(),tipo:'Ingreso',fecha:fecha,hora:h,concepto:cat,categoria:cat,
       monto:e.monto,metodo:'Efectivo',aportante:m.n,responsable:m.n,
-      observaciones:e.obs||(e.est==='ajus'?'Promesa: '+fmt(m.p):''),origen:'ofrenda-misionera'};
+      observaciones:e.obs||'',origen:'ofrenda-misionera'};
     mov.push(rec);
     if(typeof window.fbSaveMov==='function') window.fbSaveMov(rec);
   });
-  (omExtras||[]).forEach(e=>{
-    const rec={id:uid(),tipo:'Ingreso',fecha,hora:h,concepto:nombreCiclo,categoria:nombreCiclo,
+  omExtras.forEach(function(e){
+    var rec={id:uid(),tipo:'Ingreso',fecha:fecha,hora:h,concepto:cat,categoria:cat,
       monto:e.monto,metodo:'Efectivo',aportante:e.nombre,responsable:e.nombre,
       observaciones:e.obs||'',origen:'ofrenda-misionera'};
     mov.push(rec);
@@ -4570,98 +4672,65 @@ function omGuardarColecta(){
 }
 </script>
 
-
 <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-  const firebaseConfig = {
-    apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
-    authDomain: "mayordomia-ibfilm.firebaseapp.com",
-    projectId: "mayordomia-ibfilm",
-    storageBucket: "mayordomia-ibfilm.firebasestorage.app",
-    messagingSenderId: "460839237215",
-    appId: "1:460839237215:web:82418bf1627eb9c40a8dea"
-  };
-  const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
-  const COL_MOV='movimientos', COL_MEM='miembros', COL_EV='eventos', COL_OM='om_ciclos';
-
-  function setSyncStatus(ok,msg){
-    const el=document.getElementById('sync-status');
-    if(el){el.textContent=(ok?'☁️ ':'⚠️ ')+msg;el.style.color=ok?'#1d7a4e':'#d97706';}
-  }
-
-  window.fbSaveMov = async m => { try{ await setDoc(doc(db,COL_MOV,m.id),m); setSyncStatus(true,'Sincronizado'); }catch(e){ setSyncStatus(false,'Sin conexión'); } };
-  window.fbDelMov  = async id => { try{ await deleteDoc(doc(db,COL_MOV,id)); }catch(e){} };
-  window.fbSaveMem = async m => { try{ await setDoc(doc(db,COL_MEM,m.id),m); }catch(e){} };
-  window.fbDelMem  = async id => { try{ await deleteDoc(doc(db,COL_MEM,id)); }catch(e){} };
-  window.fbSaveEv  = async ev => { try{ await setDoc(doc(db,COL_EV,ev.id),ev); }catch(e){} };
-  window.fbDelEv   = async id => { try{ await deleteDoc(doc(db,COL_EV,id)); }catch(e){} };
-  window.fbSaveOM  = async ciclo => { try{ await setDoc(doc(db,COL_OM,ciclo.id),ciclo); }catch(e){} };
-
-  async function syncFromCloud(){
-    setSyncStatus(true,'Sincronizando...');
-    try{
-      const deletedIds=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
-      // Movimientos
-      const movSnap=await getDocs(collection(db,COL_MOV));
-      const movsFB=[]; movSnap.forEach(d=>movsFB.push(d.data()));
-      if(movsFB.length>0){
-        const filtered=movsFB.filter(m=>!deletedIds.includes(m.id));
-        deletedIds.forEach(id=>{ window.fbDelMov(id); });
-        const local=JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]');
-        const fbIds=new Set(filtered.map(m=>m.id));
-        const onlyLocal=local.filter(m=>!fbIds.has(m.id)&&!deletedIds.includes(m.id));
-        localStorage.setItem('ibfilm_movimientos_v2',JSON.stringify([...filtered,...onlyLocal]));
-      }
-      // Miembros
-      const memSnap=await getDocs(collection(db,COL_MEM));
-      const mems=[]; memSnap.forEach(d=>mems.push(d.data()));
-      if(mems.length>0) localStorage.setItem('ibfilm_miembros_v1',JSON.stringify(mems));
-      // Eventos/Promesas
-      const evSnap=await getDocs(collection(db,COL_EV));
-      const evsFB=[]; evSnap.forEach(d=>evsFB.push(d.data()));
-      if(evsFB.length>0){
-        const evsLocal=JSON.parse(localStorage.getItem('ibfilm_promesas_v1')||'[]');
-        const merged=evsFB.map(fbEv=>{
-          const localEv=evsLocal.find(l=>l.id===fbEv.id);
-          if(!localEv) return fbEv;
-          const fbA=(fbEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
-          const loA=(localEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
-          return loA>=fbA?localEv:fbEv;
-        });
-        evsLocal.forEach(lev=>{if(!merged.find(m=>m.id===lev.id)) merged.push(lev);});
-        localStorage.setItem('ibfilm_promesas_v1',JSON.stringify(merged));
-        merged.forEach(ev=>{if(window.fbSaveEv) window.fbSaveEv(ev);});
-      }
-      // Ciclos OM
-      const omSnap=await getDocs(collection(db,COL_OM));
-      const omCiclos=[]; omSnap.forEach(d=>omCiclos.push(d.data()));
-      if(omCiclos.length>0) localStorage.setItem('ibfilm_om_ciclos_v1',JSON.stringify(omCiclos));
-      setSyncStatus(true,'Todo sincronizado');
-      if(typeof renderDash==='function') renderDash();
-    }catch(e){ setSyncStatus(false,'Sin conexión — datos locales'); }
-  }
-
-  window.fbUploadLocal = async () => {
-    setSyncStatus(true,'Subiendo datos...');
-    try{
-      const batch=writeBatch(db);
-      const movs=JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]');
-      const mems=JSON.parse(localStorage.getItem('ibfilm_miembros_v1')||'[]');
-      const evs=JSON.parse(localStorage.getItem('ibfilm_promesas_v1')||'[]');
-      const oms=JSON.parse(localStorage.getItem('ibfilm_om_ciclos_v1')||'[]');
-      movs.forEach(m=>batch.set(doc(db,COL_MOV,m.id),m));
-      mems.forEach(m=>batch.set(doc(db,COL_MEM,m.id),m));
-      evs.forEach(e=>batch.set(doc(db,COL_EV,e.id),e));
-      oms.forEach(o=>batch.set(doc(db,COL_OM,o.id),o));
-      await batch.commit();
-      setSyncStatus(true,'Datos subidos correctamente');
-      if(typeof toast==='function') toast('Datos sincronizados con Firebase');
-    }catch(e){ setSyncStatus(false,'Error: '+e.message); }
-  };
-
-  document.addEventListener('DOMContentLoaded',()=>{ setTimeout(syncFromCloud,1500); });
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+const cfg={apiKey:"AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",authDomain:"mayordomia-ibfilm.firebaseapp.com",
+  projectId:"mayordomia-ibfilm",storageBucket:"mayordomia-ibfilm.firebasestorage.app",
+  messagingSenderId:"460839237215",appId:"1:460839237215:web:82418bf1627eb9c40a8dea"};
+const db=getFirestore(initializeApp(cfg));
+const CM='movimientos',CP='miembros',CE='eventos',CO='om_ciclos';
+function ss(ok,msg){const el=document.getElementById('sync-status');if(el){el.textContent=(ok?'☁️ ':'⚠️ ')+msg;el.style.color=ok?'#1d7a4e':'#d97706';}}
+window.fbSaveMov=async m=>{try{await setDoc(doc(db,CM,m.id),m);ss(true,'Sincronizado');}catch(e){ss(false,'Sin conexión');}};
+window.fbDelMov=async id=>{try{await deleteDoc(doc(db,CM,id));}catch(e){}};
+window.fbSaveMem=async m=>{try{await setDoc(doc(db,CP,m.id),m);}catch(e){}};
+window.fbSaveEv=async ev=>{try{await setDoc(doc(db,CE,ev.id),ev);}catch(e){}};
+window.fbSaveOM=async c=>{try{await setDoc(doc(db,CO,c.id),c);}catch(e){}};
+window.fbUploadLocal=async()=>{
+  ss(true,'Subiendo...');
+  try{
+    const b=writeBatch(db);
+    JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]').forEach(m=>b.set(doc(db,CM,m.id),m));
+    JSON.parse(localStorage.getItem('ibfilm_miembros_v1')||'[]').forEach(m=>b.set(doc(db,CP,m.id),m));
+    JSON.parse(localStorage.getItem('ibfilm_promesas_v1')||'[]').forEach(e=>b.set(doc(db,CE,e.id),e));
+    JSON.parse(localStorage.getItem('ibfilm_om_v1')||'[]').forEach(o=>b.set(doc(db,CO,o.id),o));
+    await b.commit();
+    ss(true,'Datos subidos');
+    if(typeof toast==='function') toast('Datos sincronizados con Firebase');
+  }catch(e){ss(false,'Error: '+e.message);}
+};
+async function sync(){
+  ss(true,'Sincronizando...');
+  try{
+    const del=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
+    const ms=await getDocs(collection(db,CM));
+    const mfb=[];ms.forEach(d=>mfb.push(d.data()));
+    if(mfb.length){
+      const mf=mfb.filter(m=>!del.includes(m.id));
+      del.forEach(id=>window.fbDelMov(id));
+      const ml=JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]');
+      const fids=new Set(mf.map(m=>m.id));
+      localStorage.setItem('ibfilm_movimientos_v2',JSON.stringify([...mf,...ml.filter(m=>!fids.has(m.id)&&!del.includes(m.id))]));
+    }
+    const ps=await getDocs(collection(db,CP));
+    const pm=[];ps.forEach(d=>pm.push(d.data()));
+    if(pm.length) localStorage.setItem('ibfilm_miembros_v1',JSON.stringify(pm));
+    const es=await getDocs(collection(db,CE));
+    const ef=[];es.forEach(d=>ef.push(d.data()));
+    if(ef.length){
+      const el=JSON.parse(localStorage.getItem('ibfilm_promesas_v1')||'[]');
+      const mg=ef.map(fe=>{const lo=el.find(l=>l.id===fe.id);if(!lo)return fe;const fa=(fe.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);const la=(lo.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);return la>=fa?lo:fe;});
+      el.forEach(le=>{if(!mg.find(m=>m.id===le.id))mg.push(le);});
+      localStorage.setItem('ibfilm_promesas_v1',JSON.stringify(mg));
+    }
+    const os=await getDocs(collection(db,CO));
+    const om=[];os.forEach(d=>om.push(d.data()));
+    if(om.length) localStorage.setItem('ibfilm_om_v1',JSON.stringify(om));
+    ss(true,'Todo sincronizado');
+    if(typeof renderDash==='function') renderDash();
+  }catch(e){ss(false,'Sin conexión — local');}
+}
+document.addEventListener('DOMContentLoaded',()=>setTimeout(sync,1500));
 </script>
 
 </body>
