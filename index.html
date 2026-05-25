@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- v684148 -->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -349,7 +348,7 @@ body {
 .action-btn:active { background: var(--cream-2); transform: scale(.97); }
 .action-icon { font-size: 1.8rem; }
 .action-label { font-size: 0.78rem; font-weight: 600; color: var(--navy); text-align: center; line-height: 1.2; }
-.action-btn-wide { grid-column: span 2; flex-direction: row; gap: 10px; padding: 14px 20px; justify-content: center; }
+.action-btn-wide { grid-column: span 2; flex-direction: row; gap: 10px; padding: 14px 20px; }
 .action-btn-wide .action-icon { font-size: 1.4rem; }
 .action-btn-wide .action-label { font-size: 0.85rem; }
 
@@ -403,13 +402,12 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   -webkit-tap-highlight-color: transparent;
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
 }
-.toggle-btn.sel, .toggle-btn.on {
+.toggle-btn:active, .toggle-btn.sel, .toggle-btn.on {
   background: var(--navy);
   border-color: var(--navy);
   color: var(--gold-lt);
   box-shadow: 0 2px 8px rgba(15,28,46,.2);
 }
-.toggle-btn:active { transform: scale(.96); }
 
 /* Category buttons grid */
 .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -1122,19 +1120,15 @@ let repData     = [];     // datos del reporte general actual
 ══════════════════════════════════════════ */
 const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-/* ── Toggle group helpers ── */
 function selMet(btn, groupId) {
   const grp = document.getElementById(groupId);
-  if (grp) grp.querySelectorAll('button').forEach(b => {
-    b.classList.remove('sel'); b.classList.remove('on');
-  });
-  btn.classList.add('sel');
-  btn.classList.add('on');
+  if (grp) grp.querySelectorAll('button').forEach(b => { b.classList.remove('sel','on'); });
+  btn.classList.add('sel','on');
 }
 function getSelMet(groupId) {
   const grp = document.getElementById(groupId);
   if (!grp) return '';
-  const sel = grp.querySelector('.sel') || grp.querySelector('.on');
+  const sel = grp.querySelector('.sel,.on');
   return sel ? (sel.dataset.v || '') : '';
 };
 const hoy  = () => new Date().toISOString().split('T')[0];
@@ -1214,26 +1208,9 @@ function cfgPriv(val) {
    STORAGE HELPERS
 ══════════════════════════════════════════ */
 function loadMov() { try { return JSON.parse(localStorage.getItem(K_MOV) || '[]'); } catch { return []; } }
-function saveMov(d) {
-  localStorage.setItem(K_MOV, JSON.stringify(d));
-  updateHeaderStats();
-}
-// Llamar explícitamente cuando se agrega un movimiento nuevo
-function saveMov_withSync(d, movToSync) {
-  saveMov(d);
-  if (typeof window.fbSaveMov === 'function' && movToSync) {
-    window.fbSaveMov(movToSync);
-  }
-}
+function saveMov(d) { localStorage.setItem(K_MOV, JSON.stringify(d)); updateHeaderStats(); }
 function loadMem() { try { return JSON.parse(localStorage.getItem(K_MEM) || '[]'); } catch { return []; } }
-function saveMem(d) {
-  localStorage.setItem(K_MEM, JSON.stringify(d));
-  // Sync con Firebase
-  if (typeof window.fbSaveMem === 'function' && d.length > 0) {
-    const last = d[d.length - 1];
-    window.fbSaveMem(last);
-  }
-}
+function saveMem(d) { localStorage.setItem(K_MEM, JSON.stringify(d)); }
 
 /* ══════════════════════════════════════════
    TOAST
@@ -1327,31 +1304,6 @@ function renderDash() {
   setText('dash-bal-hoy',   fmt(ingH - egrH));
   setText('dash-count-hoy', cntH);
 
-  // Saldo neto por categoría (ingresos - egresos de la misma categoría)
-  const porCat = {};
-  const LABEL_MISIONERA = 'Ofrenda Misionera 25-26';
-  mov.forEach(m => {
-    let cat = (m.concepto && m.concepto !== m.categoria)
-      ? m.concepto
-      : (m.categoria || m.concepto || 'Otros');
-    // Agrupar "Misiones" legacy
-    if (cat === 'Misiones') cat = LABEL_MISIONERA;
-    const sign = m.tipo === 'Ingreso' ? 1 : -1;
-    porCat[cat] = (porCat[cat] || 0) + (m.monto * sign);
-  });
-  const catRows = Object.entries(porCat)
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1]);
-  const catEl = document.getElementById('dash-cat-breakdown');
-  if (catEl) {
-    catEl.innerHTML = catRows.length === 0 ? '' : catRows.map(([cat, val]) => `
-      <div style="display:flex;justify-content:space-between;align-items:center;
-        padding:6px 0;border-bottom:1px solid rgba(201,168,76,.15);font-size:.8rem;">
-        <span style="color:rgba(240,236,228,.7);">${cat}</span>
-        <span style="font-family:var(--mono);font-weight:700;color:var(--gold-lt);">${fmt(val)}</span>
-      </div>`).join('');
-  }
-
   // Lista de hoy
   const hoyMov = mov.filter(m => m.fecha === h && m.tipo === 'Ingreso')
                     .sort((a,b) => (b.hora||'').localeCompare(a.hora||'')).slice(0, 10);
@@ -1386,51 +1338,34 @@ function catColor(cat) {
 /* ══════════════════════════════════════════
    AUTOCOMPLETE
 ══════════════════════════════════════════ */
-let _acCache = {};
 function acSearch(q, prefix) {
   const mem  = loadMem().filter(m => m.estatus !== 'Inactivo');
   const list = document.getElementById('ac-' + prefix);
-  if (!q || q.length < 1) { list.classList.remove('open'); _acCache[prefix]=[]; return; }
+  if (!q || q.length < 1) { list.classList.remove('open'); return; }
   const r = mem.filter(m => m.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
-  _acCache[prefix] = r;
   if (r.length === 0) {
     list.innerHTML = '<div class="ac-item" style="color:var(--text-3);">Sin resultados</div>';
     list.classList.add('open'); return;
   }
-  list.innerHTML = r.map((m, i) => `
-    <div class="ac-item" data-ac-idx="${i}" data-ac-prefix="${prefix}">
+  list.innerHTML = r.map(m => `
+    <div class="ac-item" onclick='acSelect(${JSON.stringify(m)},"${prefix}")'>
       <div class="ac-avatar" style="background:${avatarColor(m.nombre)};">${initiales(m.nombre)}</div>
       <div>
         <div class="ac-name">${m.nombre}</div>
         <div class="ac-sub">${m.grupo || ''} · ${m.estatus}</div>
       </div>
     </div>`).join('');
-  list.querySelectorAll('.ac-item[data-ac-idx]').forEach(el => {
-    el.addEventListener('mousedown', e => e.preventDefault());
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      const m = (_acCache[el.dataset.acPrefix]||[])[parseInt(el.dataset.acIdx)];
-      if (m) acSelect(m, el.dataset.acPrefix);
-    });
-  });
   list.classList.add('open');
 }
 
 function acSelect(m, prefix) {
-  const list = document.getElementById('ac-' + prefix);
-  if (list) list.classList.remove('open');
-  const searchEl = document.getElementById(prefix + '-search');
-  if (searchEl) searchEl.value = '';
+  document.getElementById('ac-' + prefix).classList.remove('open');
+  document.getElementById(prefix + '-search').value = '';
   if (prefix === 'rr') {
     rrMiembro = { tipo: 'miembro', id: m.id, nombre: m.nombre };
-    showChip(m.nombre, (m.grupo||'') + ' · ' + m.estatus, avatarColor(m.nombre), 'rr');
+    showChip(m.nombre, m.grupo + ' · ' + m.estatus, avatarColor(m.nombre), 'rr');
     document.querySelectorAll('.toggle-btn[data-quick]').forEach(b => b.classList.remove('sel'));
-    const oi = document.getElementById('rr-otro-inp'); if(oi) oi.style.display = 'none';
-  }
-  if (prefix === 'pp') {
-    ppMiembro = { id: m.id, nombre: m.nombre };
-    const mn = document.getElementById('pp-nombre-manual'); if(mn) mn.value = '';
-    showChip(m.nombre, (m.grupo||'') + ' · ' + m.estatus, avatarColor(m.nombre), 'pp');
+    document.getElementById('rr-otro-inp').style.display = 'none';
   }
 }
 
@@ -1556,7 +1491,7 @@ function rrGuardar() {
     origen:       'registro-rapido'
   };
   mov.push(m);
-  saveMov_withSync(mov, m);
+  saveMov(mov);
 
   toast(`✅ Registro guardado correctamente en este dispositivo. ${aportante} — ${rrCategoria} — ${fmt(monto)}`);
   rrResetForm();
@@ -1614,12 +1549,11 @@ function renderRRToday() {
 function delMovRR(id) {
   if (!confirm('¿Eliminar este registro?')) return;
   saveMov(loadMov().filter(m => m.id !== id));
+  if(typeof window.fbDelMov==='function') window.fbDelMov(id);
+  const _d2=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
+  if(!_d2.includes(id)){_d2.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_d2));}
   renderRRToday();
   toast('🗑️ Registro eliminado', 'warn');
-  // Eliminar de Firebase y registrar ID para evitar que vuelva
-  if(typeof window.fbDelMov === 'function') window.fbDelMov(id);
-  const _del = JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
-  if(!_del.includes(id)){_del.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_del));}
 }
 
 function deshacerUltimo() {
@@ -1856,7 +1790,7 @@ function openEditMov(id) {
   editMovId = id;
   const isIng = m.tipo === 'Ingreso';
   const cats  = isIng
-    ? ['Ofrenda Misionera 25-26','Diezmo','Ofrenda general','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros']
+    ? ['Diezmo','Ofrenda general','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros']
     : ['Diezmos','Servicios','Renta','Mantenimiento','Compras','Ministerio de jóvenes','Ministerio infantil','Misiones','Apoyo pastoral','Ayuda social','Papelería','Transporte','Construcción','Limpieza','Equipo de sonido','Otros'];
   const mets = isIng ? ['Efectivo','Transferencia','Depósito','Otro'] : ['Efectivo','Transferencia','Tarjeta','Depósito','Otro'];
   document.getElementById('modal-mov-form').innerHTML = `
@@ -1892,8 +1826,7 @@ function guardarEdicionMov() {
   mov[i].aportante     = resp;
   mov[i].observaciones = document.getElementById('em-obs').value.trim();
   saveMov(mov);
-  // Sync edited movement to Firebase immediately
-  if (typeof window.fbSaveMov === 'function') window.fbSaveMov(mov[i]);
+  if(typeof window.fbSaveMov==='function') window.fbSaveMov(mov[i]);
   closeModal('modal-mov');
   renderMov();
   toast('✅ Movimiento actualizado');
@@ -1902,9 +1835,9 @@ function guardarEdicionMov() {
 function deleteMov(id) {
   if (!confirm('¿Eliminar este movimiento?')) return;
   saveMov(loadMov().filter(m => m.id !== id));
-  if(typeof window.fbDelMov === 'function') window.fbDelMov(id);
-  const _del2 = JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
-  if(!_del2.includes(id)){_del2.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_del2));}
+  if(typeof window.fbDelMov==='function') window.fbDelMov(id);
+  const _d=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
+  if(!_d.includes(id)){_d.push(id);localStorage.setItem('ibfilm_deleted_ids',JSON.stringify(_d));}
   renderMov();
   toast('🗑️ Eliminado', 'warn');
 }
@@ -2999,390 +2932,6 @@ function cierreGuardar() {
 }
 
 
-
-
-/* ═══════════════════════════════════════════════════
-   MÓDULO: OFRENDA MISIONERA (con ciclos)
-   Cada ciclo tiene su lista de hermanos semanales/
-   quincenales. Se selecciona el ciclo activo.
-═══════════════════════════════════════════════════ */
-
-const K_OM = 'ibfilm_om_ciclos_v1';
-
-/* ── Listas fijas de hermanos ── */
-const PSEM = [
-  {n:'Pr. Moisés',p:250},{n:'Mary',p:220},{n:'Yaretzi',p:150},{n:'Leila',p:50},
-  {n:'Isaí',p:50},{n:'Junior',p:100},{n:'Jazive',p:100},{n:'Santos',p:150},
-  {n:'Cresencio',p:100},{n:'Martha',p:250},{n:'Yareli',p:150},{n:'Elvira',p:200},
-  {n:'Robert',p:150},{n:'Verónica',p:150},{n:'Javier',p:150},{n:'Daniela',p:120},
-  {n:'Maximina',p:200},{n:'Roberto',p:25},{n:'América',p:25},{n:'Alan',p:50},
-  {n:'Abdiel',p:20},{n:'Guillermo',p:150},{n:'Lourdes',p:50},{n:'Amairani',p:10},{n:'Martha M.',p:100}
-];
-const PQUIN = [
-  {n:'Enrique',p:200},{n:'Fernanda',p:200},{n:'Daniel',p:150},{n:'Sofía',p:70},
-  {n:'Cecilia',p:250},{n:'Josué',p:300},{n:'Brenda',p:100},{n:'Elisa',p:250},{n:'Juanita',p:100}
-];
-
-/* ── Estado del ciclo en curso ── */
-let omCicloActual = null;  // id del ciclo abierto
-let omEstado = {};         // {nombre: {est, monto, obs}}
-let omFreq = 'semanal';
-let omExtras = [];
-let omAjusteNombre = '';
-
-/* ── Storage ── */
-function loadOM()  { try { return JSON.parse(localStorage.getItem(K_OM)||'[]'); } catch { return []; } }
-function saveOM(d) {
-  localStorage.setItem(K_OM, JSON.stringify(d));
-  // Sync ciclos con Firebase
-  if (typeof window.fbSaveOM === 'function') d.forEach(ev => window.fbSaveOM(ev));
-}
-
-/* ── INIT ── */
-function initOfrenda() {
-  omCicloActual = null;
-  document.getElementById('om-vista-lista').style.display = '';
-  document.getElementById('om-vista-detalle').style.display = 'none';
-  omRenderLista();
-}
-
-/* ── LISTA DE CICLOS ── */
-function omRenderLista() {
-  const ciclos = loadOM();
-  const el = document.getElementById('om-ciclos-lista');
-  if (!el) return;
-
-  // Si no hay ciclos, crear el 2025-2026 automáticamente
-  if (ciclos.length === 0) {
-    el.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;color:var(--t3);">
-        <div style="font-size:2.5rem;opacity:.4;margin-bottom:12px;">🌍</div>
-        <p style="font-size:.9rem;">Sin ciclos registrados.</p>
-        <p style="font-size:.8rem;margin-top:4px;">Toca "+ Nuevo ciclo" para crear el primero.</p>
-        <button class="btn btn-p" style="margin-top:16px;" onclick="omCrearCicloDefault()">
-          Crear ciclo 2025-2026
-        </button>
-      </div>`;
-    return;
-  }
-
-  el.innerHTML = ciclos.map(ciclo => {
-    const movsCiclo = loadMov().filter(m =>
-      m.tipo === 'Ingreso' &&
-      (m.concepto === ciclo.nombre || m.categoria === ciclo.nombre)
-    );
-    const total = movsCiclo.reduce((s,m)=>s+m.monto,0);
-    const metaSem  = PSEM.reduce((s,m)=>s+m.p,0);
-    const metaQuin = PQUIN.reduce((s,m)=>s+m.p,0);
-    const activo = ciclo.estado === 'activo';
-
-    return `
-      <div class="card" style="margin-bottom:10px;cursor:pointer;border-left:4px solid ${activo?'var(--green)':'var(--t3)'};"
-           onclick="omAbrirCiclo('${ciclo.id}')">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="font-size:1.8rem;">🌍</div>
-          <div style="flex:1;">
-            <div style="font-weight:800;font-size:1rem;color:var(--navy);">
-              Ofrenda Misionera ${ciclo.nombre}
-            </div>
-            <div style="font-size:.75rem;color:var(--t3);margin-top:2px;">
-              ${ciclo.inicio ? 'Inicio: '+fdl(ciclo.inicio) : ''} 
-              ${ciclo.fin ? '· Cierre: '+fdl(ciclo.fin) : ''}
-            </div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-family:var(--mono);font-weight:800;font-size:1rem;color:var(--green);">${fmt(total)}</div>
-            <span class="badge ${activo?'bg':'bn'}" style="margin-top:4px;">${activo?'Activo':'Cerrado'}</span>
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:10px;" onclick="event.stopPropagation()">
-          <button class="btn btn-g btn-xs" onclick="omEditarCiclo('${ciclo.id}')">✏️ Editar</button>
-          <button class="btn btn-g btn-xs" style="color:var(--red);" onclick="omEliminarCiclo('${ciclo.id}')">🗑️</button>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function omCrearCicloDefault() {
-  const ciclos = loadOM();
-  ciclos.push({
-    id: uid(), nombre: '2025-2026',
-    inicio: '2025-08-01', fin: '2026-07-31',
-    estado: 'activo'
-  });
-  saveOM(ciclos);
-  omRenderLista();
-}
-
-/* ── CREAR / EDITAR CICLO ── */
-function omNuevoCiclo() {
-  ['omc-nombre','omc-inicio','omc-fin'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('omc-id').value = '';
-  document.getElementById('m-om-ciclo-title').textContent = 'Nuevo ciclo misionero';
-  document.querySelectorAll('#omc-estado button').forEach(b =>
-    b.classList.toggle('on', b.dataset.v === 'activo'));
-  openModal('m-om-ciclo');
-}
-
-function omEditarCiclo(id) {
-  const ciclo = loadOM().find(c => c.id === id);
-  if (!ciclo) return;
-  document.getElementById('omc-nombre').value = ciclo.nombre || '';
-  document.getElementById('omc-inicio').value = ciclo.inicio || '';
-  document.getElementById('omc-fin').value    = ciclo.fin    || '';
-  document.getElementById('omc-id').value     = id;
-  document.getElementById('m-om-ciclo-title').textContent = 'Editar ciclo';
-  document.querySelectorAll('#omc-estado button').forEach(b =>
-    b.classList.toggle('on', b.dataset.v === (ciclo.estado||'activo')));
-  openModal('m-om-ciclo');
-}
-
-function omGuardarCiclo() {
-  const nombre = document.getElementById('omc-nombre').value.trim();
-  if (!nombre) { toast('El nombre es obligatorio','w'); return; }
-  const editId = document.getElementById('omc-id').value;
-  const ciclos = loadOM();
-  const obj = {
-    nombre,
-    inicio:  document.getElementById('omc-inicio').value,
-    fin:     document.getElementById('omc-fin').value,
-    estado:  getSelMet('omc-estado') || 'activo'
-  };
-  if (editId) {
-    const i = ciclos.findIndex(c => c.id === editId);
-    if (i >= 0) Object.assign(ciclos[i], obj);
-  } else {
-    ciclos.push({ id: uid(), ...obj });
-  }
-  saveOM(ciclos);
-  closeModal('m-om-ciclo');
-  omRenderLista();
-  toast(editId ? 'Ciclo actualizado' : 'Ciclo creado');
-}
-
-function omEliminarCiclo(id) {
-  const ciclo = loadOM().find(c => c.id === id);
-  if (!ciclo) return;
-  if (!confirm('¿Eliminar el ciclo "' + ciclo.nombre + '"? Los movimientos registrados NO se eliminarán.')) return;
-  saveOM(loadOM().filter(c => c.id !== id));
-  omRenderLista();
-  toast('Ciclo eliminado','w');
-}
-
-/* ── ABRIR CICLO ── */
-function omAbrirCiclo(id) {
-  omCicloActual = id;
-  omEstado = {}; omExtras = []; omFreq = 'semanal';
-  document.getElementById('om-vista-lista').style.display = 'none';
-  document.getElementById('om-vista-detalle').style.display = '';
-  const fe = document.getElementById('om-fecha');
-  if (!fe.value) fe.value = hoy();
-  document.getElementById('om-f-sem').classList.add('on');
-  document.getElementById('om-f-quin').classList.remove('on');
-  omRenderDetalle();
-}
-
-function omVolverLista() {
-  omCicloActual = null;
-  document.getElementById('om-vista-lista').style.display = '';
-  document.getElementById('om-vista-detalle').style.display = 'none';
-  omRenderLista();
-}
-
-/* ── DETALLE DEL CICLO ── */
-function omSetFreq(f, btn) {
-  omFreq = f;
-  document.getElementById('om-f-sem').classList.toggle('on',  f === 'semanal');
-  document.getElementById('om-f-quin').classList.toggle('on', f === 'quincenal');
-  omRenderDetalle();
-}
-
-function omRenderDetalle() {
-  const ciclo = loadOM().find(c => c.id === omCicloActual);
-  if (!ciclo) { omVolverLista(); return; }
-
-  const lista = omFreq === 'semanal' ? PSEM : PQUIN;
-  const meta  = lista.reduce((s,m) => s+m.p, 0);
-  let totalPag = 0, cntPag = 0;
-  lista.forEach(m => {
-    const e = omEstado[m.n];
-    if (e && (e.est === 'pag' || e.est === 'ajus')) { totalPag += e.monto; cntPag++; }
-  });
-  const totalExt = omExtras.reduce((s,e) => s+e.monto, 0);
-  const grand = totalPag + totalExt;
-  const pct = meta > 0 ? Math.min(100, Math.round(grand/meta*100)) : 0;
-
-  document.getElementById('om-det-titulo').textContent = 'Ofrenda Misionera ' + ciclo.nombre;
-  document.getElementById('om-det-sub').textContent    = ciclo.estado === 'activo' ? 'Ciclo activo' : 'Ciclo cerrado';
-  document.getElementById('om-print-ciclo').textContent = ciclo.nombre;
-  document.getElementById('om-prog').style.width = pct + '%';
-
-  document.getElementById('om-resumen').innerHTML = `
-    <div class="cres">
-      <div class="crfull"><div class="cr-l">Total recibido hoy</div>
-        <div class="cr-v" style="font-size:1.8rem;">${fmt(grand)}</div></div>
-      <div><div class="cr-l">✅ Pagaron</div><div class="cr-v g">${cntPag} / ${lista.length}</div></div>
-      <div><div class="cr-l">⏳ Faltan</div><div class="cr-v r">${lista.length - cntPag}</div></div>
-      <div><div class="cr-l">Meta</div><div class="cr-v">${fmt(meta)}</div></div>
-      <div><div class="cr-l">Progreso</div><div class="cr-v">${pct}%</div></div>
-    </div>`;
-
-  // Listas de hermanos
-  const renderLista = (arr, label) => {
-    const head = `<div style="display:flex;align-items:center;justify-content:space-between;margin:12px 0 8px;">
-      <div class="stit" style="margin:0;flex:1;">${label}</div>
-      <span style="font-size:.72rem;color:var(--t3);">
-        ${arr.filter(m=>{const e=omEstado[m.n];return e&&(e.est==='pag'||e.est==='ajus');}).length} / ${arr.length}
-      </span></div>`;
-    return head + arr.map(m => omItemHTML(m)).join('');
-  };
-
-  if (omFreq === 'semanal') {
-    document.getElementById('om-lista-sem').innerHTML  = renderLista(PSEM, 'Promesa semanal');
-    document.getElementById('om-lista-quin').innerHTML = '';
-  } else {
-    document.getElementById('om-lista-sem').innerHTML  = '';
-    document.getElementById('om-lista-quin').innerHTML = renderLista(PQUIN, 'Promesa quincenal');
-  }
-
-  // Extras
-  const extEl = document.getElementById('om-extras');
-  extEl.innerHTML = omExtras.map((e,i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;
-      background:var(--cream);border:1px solid var(--b2);border-radius:var(--r);margin-bottom:6px;">
-      <div style="flex:1;font-weight:600;font-size:.88rem;">${e.nombre}</div>
-      <div style="font-family:var(--mono);font-weight:700;color:var(--green);">${fmt(e.monto)}</div>
-      <span style="color:var(--t3);cursor:pointer;font-size:1.1rem;padding:2px 5px;"
-        onclick="omDelExtra(${i})">×</span>
-    </div>`).join('');
-}
-
-function omItemHTML(m) {
-  const e   = omEstado[m.n] || {est:'pend', monto:m.p};
-  const cls = e.est==='pag'?'pag':e.est==='ajus'?'ajus':'';
-  const ic  = e.est==='pag'?'✅':e.est==='ajus'?'✏️':'⬜';
-  const amt = e.est==='pend' ? fmt(m.p) : fmt(e.monto);
-  return `<div class="ci2 ${cls}"
-    onclick="omTocar('${m.n.replace(/'/g,"\'")}',${m.p})"
-    oncontextmenu="omLongPress(event,'${m.n.replace(/'/g,"\'")}',${m.p})">
-    <div class="ciav" style="background:${cls?'':avc(m.n)};">${ini(m.n)}</div>
-    <div class="cib">
-      <div class="cin">${m.n}</div>
-      <div class="cip">Promesa: ${fmt(m.p)}${e.obs?' · '+e.obs:''}</div>
-    </div>
-    <div class="cir">
-      <div class="ciam">${amt}</div>
-      <span class="cick">${ic}</span>
-      <div class="ciact">
-        <button class="cab" onclick="event.stopPropagation();omAjustar('${m.n.replace(/'/g,"\'")}',${m.p})">✏️</button>
-        <button class="cab" onclick="event.stopPropagation();omDesmarcar('${m.n.replace(/'/g,"\'")}')">↩️</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function omTocar(nombre, promesa) {
-  const e = omEstado[nombre];
-  if (!e || e.est === 'pend') {
-    omEstado[nombre] = {est:'pag', monto:promesa, obs:''};
-    if (navigator.vibrate) navigator.vibrate(40);
-  } else { omAjustar(nombre, promesa); return; }
-  omRenderDetalle();
-}
-function omLongPress(ev, nombre, promesa) { ev.preventDefault(); omAjustar(nombre, promesa); }
-
-function omAjustar(nombre, promesa) {
-  omAjusteNombre = nombre;
-  const e = omEstado[nombre] || {};
-  document.getElementById('m-om-ajuste-title').textContent = '✏️ ' + nombre;
-  document.getElementById('om-aj-monto').value   = e.monto || promesa;
-  document.getElementById('om-aj-obs').value     = e.obs   || '';
-  document.getElementById('om-aj-nombre').value  = nombre;
-  document.getElementById('om-aj-promesa').value = promesa;
-  openModal('m-om-ajuste');
-}
-function omConfirmarAjuste() {
-  const nombre  = document.getElementById('om-aj-nombre').value;
-  const promesa = parseFloat(document.getElementById('om-aj-promesa').value);
-  const monto   = parseFloat(document.getElementById('om-aj-monto').value);
-  const obs     = document.getElementById('om-aj-obs').value.trim();
-  if (!monto || monto <= 0) { toast('Ingresa un monto válido','w'); return; }
-  omEstado[nombre] = {est: monto !== promesa ? 'ajus' : 'pag', monto, obs};
-  closeModal('m-om-ajuste');
-  omRenderDetalle();
-}
-function omDesmarcar(n) { omEstado[n] = {est:'pend', monto:0, obs:''}; omRenderDetalle(); }
-function omDelExtra(i)  { omExtras.splice(i,1); omRenderDetalle(); }
-
-function omGuardarExtra() {
-  const nombre = document.getElementById('om-ex-nombre').value.trim() || 'Anónimo';
-  const monto  = parseFloat(document.getElementById('om-ex-monto').value);
-  const obs    = document.getElementById('om-ex-obs').value.trim();
-  if (!monto || monto <= 0) { toast('Ingresa un monto válido','w'); return; }
-  omExtras.push({nombre, monto, obs});
-  document.getElementById('om-ex-nombre').value = '';
-  document.getElementById('om-ex-monto').value  = '';
-  document.getElementById('om-ex-obs').value    = '';
-  closeModal('m-om-extra');
-  omRenderDetalle();
-  toast('✅ ' + nombre + ' — ' + fmt(monto) + ' agregado');
-}
-
-function omGuardarColecta() {
-  const ciclo = loadOM().find(c => c.id === omCicloActual);
-  if (!ciclo) return;
-  const fecha = document.getElementById('om-fecha').value;
-  if (!fecha) { toast('Selecciona la fecha del culto','w'); return; }
-
-  const lista   = omFreq === 'semanal' ? PSEM : PQUIN;
-  const pagados = lista.filter(m => {
-    const e = omEstado[m.n]; return e && (e.est === 'pag' || e.est === 'ajus');
-  });
-
-  if (!pagados.length && !omExtras.length) {
-    toast('No hay aportaciones marcadas','w'); return;
-  }
-
-  const total   = pagados.reduce((s,m) => s+omEstado[m.n].monto, 0)
-                + omExtras.reduce((s,e) => s+e.monto, 0);
-  const nombre  = 'Ofrenda Misionera ' + ciclo.nombre;
-
-  if (!confirm('¿Guardar colecta? ' + fmt(total) + ' de ' + (pagados.length+omExtras.length) + ' aportantes. Fecha: ' + fecha)) return;
-
-  const mov = loadMov();
-  const h   = hora();
-  pagados.forEach(m => {
-    const e = omEstado[m.n];
-    mov.push({
-      id: uid(), tipo: 'Ingreso', fecha, hora: h,
-      concepto:  nombre, categoria: nombre,
-      monto: e.monto, metodo: 'Efectivo',
-      aportante: m.n, responsable: m.n,
-      observaciones: e.obs||(e.est==='ajus'?'Promesa: '+fmt(m.p):''),
-      origen: 'ofrenda-misionera', cicloId: omCicloActual
-    });
-  });
-  omExtras.forEach(e => {
-    mov.push({
-      id: uid(), tipo: 'Ingreso', fecha, hora: h,
-      concepto: nombre, categoria: nombre,
-      monto: e.monto, metodo: 'Efectivo',
-      aportante: e.nombre, responsable: e.nombre,
-      observaciones: e.obs||'',
-      origen: 'ofrenda-misionera', cicloId: omCicloActual
-    });
-  });
-
-  // Sync all new entries to Firebase
-  const allNew = [...pagados.map(m=>({...m,id:m.id})), ...omExtras.map(e=>({...e,id:e.id}))];
-  if (typeof window.fbSaveMov === 'function') mov.slice(-(pagados.length+omExtras.length)).forEach(m => window.fbSaveMov(m));
-  saveMov(mov);
-  omEstado = {}; omExtras = [];
-  toast('✅ Colecta guardada: ' + fmt(total));
-  omRenderDetalle();
-}
-
-
   </script>
 </head>
 <body>
@@ -3438,7 +2987,6 @@ function omGuardarColecta() {
       <div class="stat-hero-label">Saldo general disponible</div>
       <div class="stat-hero-value" id="dash-saldo">$0.00</div>
       <div class="stat-hero-sub" id="dash-date"></div>
-      <div id="dash-cat-breakdown" style="margin-top:12px;border-top:1px solid rgba(201,168,76,.2);padding-top:10px;"></div>
     </div>
 
     <div class="stat-row">
@@ -3462,7 +3010,7 @@ function omGuardarColecta() {
 
     <div class="section-title">Acciones rápidas</div>
     <div class="action-grid">
-      <button class="action-btn" onclick="nav('colecta')"><span class="action-icon">🌍</span><span class="action-label">Ofrenda Misionera</span></button>
+      <button class="action-btn" onclick="nav('colecta')"><span class="action-icon">🌍</span><span class="action-label">Ofrenda Misionera 25-26</span></button>
       <button class="action-btn" onclick="nav('cierre')"><span class="action-icon">🏦</span><span class="action-label">Cierre de Culto</span></button>
       <button class="action-btn" onclick="nav('rep-diario')"><span class="action-icon">📅</span><span class="action-label">Reporte diario</span></button>
       <button class="action-btn" onclick="nav('egresos')"><span class="action-icon">📤</span><span class="action-label">Registrar egreso</span></button>
@@ -3587,7 +3135,8 @@ function omGuardarColecta() {
           <option>Servicios</option><option>Renta</option><option>Mantenimiento</option>
           <option>Compras</option><option>Ministerio de jóvenes</option>
           <option>Ministerio infantil</option><option>Misiones</option>
-          <option>Diezmos</option><option>Apoyo pastoral</option><option>Ayuda social</option>
+          <option>Diezmos</option>
+            <option>Apoyo pastoral</option><option>Ayuda social</option>
           <option>Papelería</option><option>Transporte</option><option>Construcción</option>
           <option>Limpieza</option><option>Equipo de sonido</option><option>Otros</option>
         </select>
@@ -3786,8 +3335,7 @@ function omGuardarColecta() {
       </div>
     </div>
 
-    <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="fbUploadAll()">☁️ Subir todos los datos a Firebase</button>
-    <button class="btn btn-danger btn-block" style="margin-top:10px;" onclick="borrarTodo()">🗑️ Borrar todos los datos</button>
+    <button class="btn btn-danger btn-block" style="margin-top:14px;" onclick="borrarTodo()">🗑️ Borrar todos los datos</button>
   </main>
 
   <!-- ── CONFIGURACIÓN ── -->
@@ -3849,8 +3397,6 @@ function omGuardarColecta() {
 
   <!-- ── COLECTA MISIONERA ── -->
   <main class="page" id="pg-colecta">
-
-    <!-- VISTA: Lista de ciclos -->
     <div id="om-vista-lista">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <div class="page-title">🌍 Ofrenda Misionera</div>
@@ -3859,62 +3405,40 @@ function omGuardarColecta() {
       <div class="page-sub">Selecciona un ciclo para registrar ofrendas</div>
       <div id="om-ciclos-lista"></div>
     </div>
-
-    <!-- VISTA: Detalle de un ciclo -->
     <div id="om-vista-detalle" style="display:none;">
-      <div class="print-header">
-        <h1>Mayordomía IBFILM</h1>
-        <p>Ofrenda Misionera</p>
-        <p id="om-print-ciclo"></p>
-      </div>
-
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;" class="no-print">
         <button class="btn btn-ghost btn-sm" onclick="omVolverLista()">← Volver</button>
         <div style="flex:1;">
           <div class="page-title" id="om-det-titulo" style="margin-bottom:0;font-size:1.1rem;"></div>
-          <div class="page-sub" id="om-det-sub" style="margin-bottom:0;"></div>
+          <div class="page-sub"  id="om-det-sub"    style="margin-bottom:0;"></div>
         </div>
         <button class="btn btn-ghost btn-sm no-print" onclick="window.print()">🖨️</button>
       </div>
-
-      <!-- Controles -->
       <div class="card no-print" style="margin-bottom:12px;">
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-          <div class="fg" style="flex:1;min-width:150px;margin-bottom:0;">
-            <label class="fl">Fecha del culto</label>
+          <div class="form-group" style="flex:1;min-width:150px;margin-bottom:0;">
+            <label class="form-label">Fecha del culto</label>
             <input type="date" id="om-fecha" class="form-control" onchange="omRenderDetalle()">
           </div>
-          <div class="fg" style="margin-bottom:0;">
-            <label class="fl">Frecuencia</label>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Frecuencia</label>
             <div style="display:flex;gap:6px;">
-              <button class="tbtn on" id="om-f-sem"  onclick="omSetFreq('semanal',this)">Semanal</button>
-              <button class="tbtn"    id="om-f-quin" onclick="omSetFreq('quincenal',this)">Quincenal</button>
+              <button class="toggle-btn sel" id="om-f-sem"  onclick="omSetFreq('semanal',this)">Semanal</button>
+              <button class="toggle-btn"     id="om-f-quin" onclick="omSetFreq('quincenal',this)">Quincenal</button>
             </div>
           </div>
-          <button class="btn btn-danger btn-sm no-print" onclick="omGuardarColecta()" style="align-self:flex-end;">
-            💾 Guardar colecta
-          </button>
+          <button class="btn btn-danger btn-sm no-print" onclick="omGuardarColecta()" style="align-self:flex-end;">💾 Guardar colecta</button>
         </div>
       </div>
-
-      <!-- Resumen -->
       <div id="om-resumen" style="margin-bottom:8px;"></div>
-      <div class="prog" style="margin-bottom:12px;">
-        <div class="progf" id="om-prog" style="width:0%"></div>
-      </div>
-
-      <!-- Lista de hermanos -->
-      <div class="stitle" style="margin-top:4px;">Hermanos</div>
+      <div class="col-progress-bar" style="margin-bottom:12px;"><div class="col-progress-fill" id="om-prog" style="width:0%"></div></div>
+      <div class="section-title" style="margin-top:4px;">Hermanos</div>
       <div id="om-lista-sem"></div>
       <div id="om-lista-quin"></div>
-
-      <!-- Otros aportantes -->
       <div class="card no-print" style="margin-top:4px;">
-        <div class="stitle" style="margin:0 0 8px;">Otros aportantes</div>
+        <div class="section-title" style="margin:0 0 8px;">Otros aportantes</div>
         <div id="om-extras"></div>
-        <button class="btn btn-ghost btn-sm btn-w" onclick="openModal('m-om-extra')" style="margin-top:10px;">
-          + Agregar visitante / otro
-        </button>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;" onclick="openModal('m-om-extra')">+ Agregar visitante / otro</button>
       </div>
     </div>
   </main>
@@ -4223,26 +3747,11 @@ const K_PROM = 'ibfilm_promesas_v1';
 function loadProm() {
   try { return JSON.parse(localStorage.getItem(K_PROM) || '[]'); } catch { return []; }
 }
-function saveProm(d) {
-  localStorage.setItem(K_PROM, JSON.stringify(d));
-  // Sync each event to Firebase immediately
-  if (typeof window.fbSaveEv === 'function') {
-    d.forEach(ev => window.fbSaveEv(ev));
-  }
-}
+function saveProm(d) { localStorage.setItem(K_PROM, JSON.stringify(d)); }
 
 let promEventoActual = null;  // id del evento abierto
 let paMetodo = 'Efectivo';
 let ppMiembro = null;  // miembro seleccionado en modal participante
-
-/* ── FIREBASE UPLOAD ALL ── */
-function fbUploadAll() {
-  if (typeof window.fbUploadLocal === 'function') {
-    window.fbUploadLocal();
-  } else {
-    toast('Conectando con Firebase...', 'warn');
-  }
-}
 
 /* ── INIT ── */
 function initPromesas() {
@@ -4654,7 +4163,18 @@ function promGuardarAbono() {
   toast('Pago de ' + fmt(monto) + ' registrado');
 }
 
-/* pp manejado en acSelect unificado */
+/* ── AUTOCOMPLETE en modal participante ── */
+// El acSelect global ya maneja 'pp' prefix, solo necesitamos
+// capturar la selección para ppMiembro
+const _acSelectOrig = acSelect;
+function acSelect(m, prefix) {
+  _acSelectOrig(m, prefix);
+  if (prefix === 'pp') {
+    ppMiembro = { id:m.id, nombre:m.nombre };
+    document.getElementById('pp-nombre-manual').value = '';
+    showChip(m.nombre, m.grupo + ' · ' + m.estatus, avatarColor(m.nombre), 'pp');
+  }
+}
 
 /* ── EXPORTAR CSV DEL EVENTO ── */
 function promExportCSV() {
@@ -4673,166 +4193,6 @@ function promExportCSV() {
 </script>
 
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
-      authDomain: "mayordomia-ibfilm.firebaseapp.com",
-      projectId: "mayordomia-ibfilm",
-      storageBucket: "mayordomia-ibfilm.firebasestorage.app",
-      messagingSenderId: "460839237215",
-      appId: "1:460839237215:web:82418bf1627eb9c40a8dea"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
-
-    // ── Colecciones ──
-    const COL_MOV = 'movimientos';
-    const COL_MEM = 'miembros';
-    const COL_EV  = 'eventos';
-
-    // ── Sync status indicator ──
-    function setSyncStatus(ok, msg) {
-      const el = document.getElementById('sync-status');
-      if (el) {
-        el.textContent = ok ? '☁️ ' + msg : '⚠️ ' + msg;
-        el.style.color = ok ? '#1d7a4e' : '#d97706';
-      }
-    }
-
-    // ── GUARDAR movimiento en Firestore ──
-    window.fbSaveMov = async function(m) {
-      try {
-        await setDoc(doc(db, COL_MOV, m.id), m);
-        setSyncStatus(true, 'Sincronizado');
-      } catch(e) { setSyncStatus(false, 'Sin conexión — guardado local'); }
-    };
-
-    // ── ELIMINAR movimiento ──
-    window.fbDelMov = async function(id) {
-      try { await deleteDoc(doc(db, COL_MOV, id)); } catch(e) {}
-    };
-
-    // ── GUARDAR miembro ──
-    window.fbSaveMem = async function(m) {
-      try { await setDoc(doc(db, COL_MEM, m.id), m); } catch(e) {}
-    };
-
-    // ── ELIMINAR miembro ──
-    window.fbDelMem = async function(id) {
-      try { await deleteDoc(doc(db, COL_MEM, id)); } catch(e) {}
-    };
-
-    // ── GUARDAR evento ──
-    const COL_OM  = 'om_ciclos';
-    window.fbSaveEv = async function(ev) {
-      try { await setDoc(doc(db, COL_EV, ev.id), ev); } catch(e) {}
-    };
-
-    // ── ELIMINAR evento ──
-    window.fbDelEv = async function(id) {
-      try { await deleteDoc(doc(db, COL_EV, id)); } catch(e) {}
-    };
-    window.fbSaveOM = async function(ciclo) {
-      try { await setDoc(doc(db, COL_OM, ciclo.id), ciclo); } catch(e) {}
-    };
-
-    // ── SYNC INICIAL: bajar datos de Firestore a localStorage ──
-    async function syncFromCloud() {
-      setSyncStatus(true, 'Sincronizando...');
-      try {
-        // Movimientos — respetar eliminaciones locales
-        const deletedIds = JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
-        const movSnap = await getDocs(collection(db, COL_MOV));
-        const movsFB = [];
-        movSnap.forEach(d => movsFB.push(d.data()));
-        if (movsFB.length > 0) {
-          // Filtrar los que fueron eliminados localmente
-          const movsFiltered = movsFB.filter(m => !deletedIds.includes(m.id));
-          // Eliminar de Firebase los que están en la lista de eliminados
-          deletedIds.forEach(id => { if(window.fbDelMov) window.fbDelMov(id); });
-          // Merge con locales — mantener los locales que no están en Firebase
-          const movsLocal = JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]');
-          const fbIds = new Set(movsFiltered.map(m=>m.id));
-          const onlyLocal = movsLocal.filter(m => !fbIds.has(m.id) && !deletedIds.includes(m.id));
-          const merged = [...movsFiltered, ...onlyLocal];
-          localStorage.setItem('ibfilm_movimientos_v2', JSON.stringify(merged));
-        }
-        // Miembros
-        const memSnap = await getDocs(collection(db, COL_MEM));
-        const mems = [];
-        memSnap.forEach(d => mems.push(d.data()));
-        if (mems.length > 0) {
-          localStorage.setItem('ibfilm_miembros_v1', JSON.stringify(mems));
-        }
-        // Eventos — merge con datos locales para no perder abonos
-        const evSnap = await getDocs(collection(db, COL_EV));
-        const evsFB = [];
-        evSnap.forEach(d => evsFB.push(d.data()));
-        if (evsFB.length > 0) {
-          const evsLocal = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]');
-          // Merge: para cada evento, usar el que tenga más abonos (más actualizado)
-          const merged = evsFB.map(fbEv => {
-            const localEv = evsLocal.find(l => l.id === fbEv.id);
-            if (!localEv) return fbEv;
-            // Comparar total de abonos en participantes
-            const fbAbonos = (fbEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
-            const localAbonos = (localEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
-            return localAbonos >= fbAbonos ? localEv : fbEv;
-          });
-          // Agregar eventos locales que no están en Firebase
-          evsLocal.forEach(lev => {
-            if (!merged.find(m => m.id === lev.id)) merged.push(lev);
-          });
-          localStorage.setItem('ibfilm_promesas_v1', JSON.stringify(merged));
-          // Subir versión merged a Firebase
-          merged.forEach(ev => { if(window.fbSaveEv) window.fbSaveEv(ev); });
-        }
-        // Ciclos de Ofrenda Misionera
-        const omSnap = await getDocs(collection(db, COL_OM));
-        const omCiclos = [];
-        omSnap.forEach(d => omCiclos.push(d.data()));
-        if (omCiclos.length > 0) {
-          localStorage.setItem('ibfilm_om_ciclos_v1', JSON.stringify(omCiclos));
-        }
-        setSyncStatus(true, 'Todo sincronizado');
-        // Refrescar la vista actual
-        if (typeof renderDash === 'function') renderDash();
-      } catch(e) {
-        setSyncStatus(false, 'Sin conexión — usando datos locales');
-      }
-    }
-
-    // ── SUBIR datos locales a Firestore (primera vez) ──
-    window.fbUploadLocal = async function() {
-      setSyncStatus(true, 'Subiendo datos...');
-      try {
-        const batch = writeBatch(db);
-        const movs = JSON.parse(localStorage.getItem('ibfilm_movimientos_v2') || '[]');
-        const mems = JSON.parse(localStorage.getItem('ibfilm_miembros_v1') || '[]');
-        const evs  = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]');
-        movs.forEach(m => batch.set(doc(db, COL_MOV, m.id), m));
-        mems.forEach(m => batch.set(doc(db, COL_MEM, m.id), m));
-        evs.forEach(e => batch.set(doc(db, COL_EV, e.id), e));
-        await batch.commit();
-        setSyncStatus(true, 'Datos subidos correctamente');
-        if (typeof toast === 'function') toast('☁️ Datos sincronizados con Firebase');
-      } catch(e) {
-        setSyncStatus(false, 'Error al subir: ' + e.message);
-        if (typeof toast === 'function') toast('⚠️ Sin conexión — datos guardados localmente', 'warn');
-      }
-    };
-
-    // ── Iniciar sincronización al cargar ──
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(syncFromCloud, 1500);
-    });
-  </script>
-
 <!-- MODAL: NUEVO CICLO -->
 <div class="modal-bg" id="m-om-ciclo">
   <div class="modal">
@@ -4843,7 +4203,7 @@ function promExportCSV() {
       <input type="text" id="omc-nombre" class="form-control" placeholder="Ej: 2025-2026, 2026-2027">
     </div>
     <div class="form-group">
-      <label class="form-label">Fecha de inicio</label>
+      <label class="form-label">Fecha de inicio <span>(opcional)</span></label>
       <input type="date" id="omc-inicio" class="form-control">
     </div>
     <div class="form-group">
@@ -4852,20 +4212,20 @@ function promExportCSV() {
     </div>
     <div class="form-group">
       <label class="form-label">Estado</label>
-      <div class="tgrp" id="omc-estado">
-        <button class="tbtn on" data-v="activo"   onclick="selMet(this,'omc-estado')">✅ Activo</button>
-        <button class="tbtn"    data-v="cerrado"  onclick="selMet(this,'omc-estado')">🔒 Cerrado</button>
+      <div style="display:flex;gap:8px;" id="omc-estado">
+        <button class="toggle-btn sel" data-v="activo"  onclick="selMet(this,'omc-estado')">✅ Activo</button>
+        <button class="toggle-btn"     data-v="cerrado" onclick="selMet(this,'omc-estado')">🔒 Cerrado</button>
       </div>
     </div>
     <input type="hidden" id="omc-id">
     <div class="modal-actions">
-      <button class="btn btn-g" onclick="closeModal('m-om-ciclo')">Cancelar</button>
-      <button class="btn btn-p" onclick="omGuardarCiclo()">💾 Guardar</button>
+      <button class="btn btn-ghost" onclick="closeModal('m-om-ciclo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="omGuardarCiclo()">💾 Guardar</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: AJUSTE MONTO OFRENDA MISIONERA -->
+<!-- MODAL: AJUSTE MONTO OM -->
 <div class="modal-bg" id="m-om-ajuste">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -4882,22 +4242,22 @@ function promExportCSV() {
     <input type="hidden" id="om-aj-nombre">
     <input type="hidden" id="om-aj-promesa">
     <div class="modal-actions">
-      <button class="btn btn-g" onclick="closeModal('m-om-ajuste')">Cancelar</button>
-      <button class="btn btn-s" onclick="omConfirmarAjuste()">✅ Confirmar</button>
+      <button class="btn btn-ghost" onclick="closeModal('m-om-ajuste')">Cancelar</button>
+      <button class="btn btn-success" onclick="omConfirmarAjuste()">✅ Confirmar</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: EXTRA OFRENDA MISIONERA -->
+<!-- MODAL: EXTRA OM -->
 <div class="modal-bg" id="m-om-extra">
   <div class="modal">
     <div class="modal-handle"></div>
     <h3>Agregar aportante</h3>
     <div class="form-group">
       <label class="form-label">Nombre</label>
-      <div class="tgrp" style="margin-bottom:8px;">
-        <button class="tbtn" onclick="document.getElementById('om-ex-nombre').value='Anónimo'">👤 Anónimo</button>
-        <button class="tbtn" onclick="document.getElementById('om-ex-nombre').value='Visitante'">🙋 Visitante</button>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="toggle-btn" onclick="document.getElementById('om-ex-nombre').value='Anónimo'">👤 Anónimo</button>
+        <button class="toggle-btn" onclick="document.getElementById('om-ex-nombre').value='Visitante'">🙋 Visitante</button>
       </div>
       <input type="text" id="om-ex-nombre" class="form-control" placeholder="O escribe el nombre…">
     </div>
@@ -4912,10 +4272,397 @@ function promExportCSV() {
       <input type="text" id="om-ex-obs" class="form-control" placeholder="Nota…">
     </div>
     <div class="modal-actions">
-      <button class="btn btn-g" onclick="closeModal('m-om-extra')">Cancelar</button>
-      <button class="btn btn-s" onclick="omGuardarExtra()">✅ Agregar</button>
+      <button class="btn btn-ghost" onclick="closeModal('m-om-extra')">Cancelar</button>
+      <button class="btn btn-success" onclick="omGuardarExtra()">✅ Agregar</button>
     </div>
   </div>
 </div>
+
+
+<script>
+/* OFRENDA MISIONERA - Módulo con ciclos */
+const K_OM = 'ibfilm_om_ciclos_v1';
+const PSEM = [
+  {n:'Pr. Moisés',p:250},{n:'Mary',p:220},{n:'Yaretzi',p:150},{n:'Leila',p:50},
+  {n:'Isaí',p:50},{n:'Junior',p:100},{n:'Jazive',p:100},{n:'Santos',p:150},
+  {n:'Cresencio',p:100},{n:'Martha',p:250},{n:'Yareli',p:150},{n:'Elvira',p:200},
+  {n:'Robert',p:150},{n:'Verónica',p:150},{n:'Javier',p:150},{n:'Daniela',p:120},
+  {n:'Maximina',p:200},{n:'Roberto',p:25},{n:'América',p:25},{n:'Alan',p:50},
+  {n:'Abdiel',p:20},{n:'Guillermo',p:150},{n:'Lourdes',p:50},{n:'Amairani',p:10},{n:'Martha M.',p:100}
+];
+const PQUIN = [
+  {n:'Enrique',p:200},{n:'Fernanda',p:200},{n:'Daniel',p:150},{n:'Sofía',p:70},
+  {n:'Cecilia',p:250},{n:'Josué',p:300},{n:'Brenda',p:100},{n:'Elisa',p:250},{n:'Juanita',p:100}
+];
+let omCicloActual=null,omEstado={},omFreq='semanal',omExtras=[];
+
+function loadOM(){try{return JSON.parse(localStorage.getItem(K_OM)||'[]');}catch{return[];}}
+function saveOM(d){
+  localStorage.setItem(K_OM,JSON.stringify(d));
+  if(typeof window.fbSaveOM==='function') d.forEach(ev=>window.fbSaveOM(ev));
+}
+
+function initOfrenda(){
+  omCicloActual=null;
+  document.getElementById('om-vista-lista').style.display='';
+  document.getElementById('om-vista-detalle').style.display='none';
+  omRenderLista();
+}
+
+function omRenderLista(){
+  const ciclos=loadOM();
+  const el=document.getElementById('om-ciclos-lista');
+  if(!el) return;
+  if(!ciclos.length){
+    el.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--text-3);">'+
+      '<div style="font-size:2.5rem;opacity:.4;margin-bottom:12px;">🌍</div>'+
+      '<p>Sin ciclos registrados.</p>'+
+      '<button class="btn btn-primary" style="margin-top:16px;" onclick="omNuevoCiclo()">+ Crear primer ciclo</button></div>';
+    return;
+  }
+  el.innerHTML='';
+  ciclos.forEach(function(ciclo){
+    const movsCiclo=loadMov().filter(function(m){
+      return m.tipo==='Ingreso'&&(m.concepto===('Ofrenda Misionera '+ciclo.nombre)||m.categoria===('Ofrenda Misionera '+ciclo.nombre));
+    });
+    const total=movsCiclo.reduce(function(s,m){return s+m.monto;},0);
+    const activo=ciclo.estado==='activo';
+    const card=document.createElement('div');
+    card.className='card';
+    card.style.cssText='margin-bottom:10px;cursor:pointer;border-left:4px solid '+(activo?'var(--green)':'var(--text-3)');
+    card.onclick=function(){ omAbrirCiclo(ciclo.id); };
+    card.innerHTML=
+      '<div style="display:flex;align-items:center;gap:12px;">'+
+      '<div style="font-size:1.8rem;">🌍</div>'+
+      '<div style="flex:1;"><div style="font-weight:800;font-size:1rem;color:var(--navy);">Ofrenda Misionera '+ciclo.nombre+'</div>'+
+      '<div style="font-size:.75rem;color:var(--text-3);margin-top:2px;">'+(ciclo.inicio?'Inicio: '+fdl(ciclo.inicio):'')+(ciclo.fin?' · Cierre: '+fdl(ciclo.fin):'')+'</div></div>'+
+      '<div style="text-align:right;"><div style="font-family:var(--mono);font-weight:800;font-size:1rem;color:var(--green);">'+fmt(total)+'</div>'+
+      '<span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:700;background:'+(activo?'var(--green-lt)':'var(--cream-2)')+';color:'+(activo?'var(--green-dk)':'var(--text-3)')+';">'+(activo?'Activo':'Cerrado')+'</span></div></div>'+
+      '<div style="display:flex;gap:6px;margin-top:10px;">'+
+      '<button class="btn btn-ghost btn-xs om-edit-btn" data-id="'+ciclo.id+'">✏️ Editar</button>'+
+      '<button class="btn btn-ghost btn-xs om-del-btn" data-id="'+ciclo.id+'" style="color:var(--red);">🗑️</button>'+
+      '</div>';
+    card.querySelector('.om-edit-btn').onclick = function(e){ e.stopPropagation(); omEditarCiclo(this.dataset.id); };
+    card.querySelector('.om-del-btn').onclick  = function(e){ e.stopPropagation(); omEliminarCiclo(this.dataset.id); };
+    el.appendChild(card);
+  });
+}
+
+function omNuevoCiclo(){
+  ['omc-nombre','omc-inicio','omc-fin'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('omc-id').value='';
+  document.getElementById('m-om-ciclo-title').textContent='Nuevo ciclo misionero';
+  document.querySelectorAll('#omc-estado button').forEach(b=>{
+    b.classList.remove('sel','on');
+    if(b.dataset.v==='activo') b.classList.add('sel','on');
+  });
+  openModal('m-om-ciclo');
+}
+
+function omEditarCiclo(id){
+  const ciclo=loadOM().find(c=>c.id===id); if(!ciclo) return;
+  document.getElementById('omc-nombre').value=ciclo.nombre||'';
+  document.getElementById('omc-inicio').value=ciclo.inicio||'';
+  document.getElementById('omc-fin').value=ciclo.fin||'';
+  document.getElementById('omc-id').value=id;
+  document.getElementById('m-om-ciclo-title').textContent='Editar ciclo';
+  const est=ciclo.estado||'activo';
+  document.querySelectorAll('#omc-estado button').forEach(b=>{
+    b.classList.remove('sel','on');
+    if(b.dataset.v===est) b.classList.add('sel','on');
+  });
+  openModal('m-om-ciclo');
+}
+
+function omGuardarCiclo(){
+  const nombre=document.getElementById('omc-nombre').value.trim();
+  if(!nombre){toast('Escribe el nombre del ciclo, ej: 2025-2026','warn');return;}
+  const editId=document.getElementById('omc-id').value;
+  const estadoBtn=document.querySelector('#omc-estado button.sel')||document.querySelector('#omc-estado button.on')||document.querySelector('#omc-estado button');
+  const estado=estadoBtn?estadoBtn.dataset.v:'activo';
+  const ciclos=loadOM();
+  const obj={nombre,inicio:document.getElementById('omc-inicio').value,fin:document.getElementById('omc-fin').value,estado};
+  if(editId){
+    const i=ciclos.findIndex(c=>c.id===editId);
+    if(i>=0) Object.assign(ciclos[i],obj); else ciclos.push({id:editId,...obj});
+  } else {
+    ciclos.push({id:uid(),...obj});
+  }
+  saveOM(ciclos);
+  closeModal('m-om-ciclo');
+  omRenderLista();
+  toast('Ciclo "'+nombre+'" guardado');
+}
+
+function omEliminarCiclo(id){
+  const ciclo=loadOM().find(c=>c.id===id); if(!ciclo) return;
+  if(!confirm('Eliminar el ciclo "'+ciclo.nombre+'"? Los movimientos NO se eliminarán.')) return;
+  saveOM(loadOM().filter(c=>c.id!==id));
+  omRenderLista();
+  toast('Ciclo eliminado','warn');
+}
+
+function omAbrirCiclo(id){
+  omCicloActual=id; omEstado={}; omExtras={}; omFreq='semanal';
+  document.getElementById('om-vista-lista').style.display='none';
+  document.getElementById('om-vista-detalle').style.display='';
+  const fe=document.getElementById('om-fecha'); if(fe&&!fe.value) fe.value=hoy();
+  document.querySelectorAll('#om-f-sem,#om-f-quin').forEach(b=>b.classList.remove('sel','on'));
+  const s=document.getElementById('om-f-sem'); if(s) s.classList.add('sel','on');
+  omRenderDetalle();
+}
+
+function omVolverLista(){
+  omCicloActual=null;
+  document.getElementById('om-vista-lista').style.display='';
+  document.getElementById('om-vista-detalle').style.display='none';
+  omRenderLista();
+}
+
+function omSetFreq(f,btn){
+  omFreq=f;
+  document.querySelectorAll('#om-f-sem,#om-f-quin').forEach(b=>b.classList.remove('sel','on'));
+  btn.classList.add('sel','on');
+  omRenderDetalle();
+}
+
+function omRenderDetalle(){
+  const ciclos=loadOM(); const ciclo=ciclos.find(c=>c.id===omCicloActual);
+  if(!ciclo){omVolverLista();return;}
+  const lista=omFreq==='semanal'?PSEM:PQUIN;
+  const meta=lista.reduce((s,m)=>s+m.p,0);
+  let totalPag=0,cntPag=0;
+  lista.forEach(m=>{const e=omEstado[m.n];if(e&&(e.est==='pag'||e.est==='ajus')){totalPag+=e.monto;cntPag++;}});
+  const totalExt=(omExtras||[]).reduce((s,e)=>s+e.monto,0);
+  const grand=totalPag+totalExt;
+  const pct=meta>0?Math.min(100,Math.round(grand/meta*100)):0;
+  document.getElementById('om-det-titulo').textContent='Ofrenda Misionera '+ciclo.nombre;
+  document.getElementById('om-det-sub').textContent=ciclo.estado==='activo'?'Ciclo activo':'Ciclo cerrado';
+  const prog=document.getElementById('om-prog'); if(prog) prog.style.width=pct+'%';
+  document.getElementById('om-resumen').innerHTML=
+    '<div class="col-resumen-card">'+
+    '<div class="crk crk-full"><div class="crk-label">Total recibido</div><div class="crk-value" style="font-size:1.8rem;">'+fmt(grand)+'</div></div>'+
+    '<div class="crk"><div class="crk-label">Pagaron</div><div class="crk-value green">'+cntPag+' / '+lista.length+'</div></div>'+
+    '<div class="crk"><div class="crk-label">Faltan</div><div class="crk-value red">'+(lista.length-cntPag)+'</div></div>'+
+    '<div class="crk"><div class="crk-label">Meta</div><div class="crk-value">'+fmt(meta)+'</div></div>'+
+    '</div>';
+  function appendLista(elId, arr, label){
+    const cont=document.getElementById(elId); if(!cont) return;
+    cont.innerHTML='<div class="section-title">'+label+'</div>';
+    arr.forEach(function(m){ cont.appendChild(omItemHTML(m)); });
+  }
+  if(omFreq==='semanal'){
+    appendLista('om-lista-sem', PSEM, 'Promesa semanal');
+    const qel=document.getElementById('om-lista-quin'); if(qel) qel.innerHTML='';
+  } else {
+    const sel=document.getElementById('om-lista-sem'); if(sel) sel.innerHTML='';
+    appendLista('om-lista-quin', PQUIN, 'Promesa quincenal');
+  }
+  const extEl=document.getElementById('om-extras');
+  extEl.innerHTML=(omExtras||[]).map((e,i)=>
+    '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--cream);border:1px solid var(--border-2);border-radius:var(--r);margin-bottom:6px;">'+
+    '<div style="flex:1;font-weight:600;font-size:.88rem;">'+e.nombre+'</div>'+
+    '<div style="font-family:var(--mono);font-weight:700;color:var(--green);">'+fmt(e.monto)+'</div>'+
+    '<span style="color:var(--text-3);cursor:pointer;font-size:1.1rem;padding:2px 5px;" onclick="omDelExtra('+i+')">×</span>'+
+    '</div>').join('');
+}
+
+function omItemHTML(m){
+  const e=omEstado[m.n]||{est:'pend',monto:m.p};
+  const cls=e.est==='pag'?'pagado':e.est==='ajus'?'ajustado':'';
+  const ic=e.est==='pag'?'✅':e.est==='ajus'?'✏️':'⬜';
+  const amt=e.est==='pend'?fmt(m.p):fmt(e.monto);
+  const div=document.createElement('div');
+  div.className='colecta-item '+cls;
+  div.dataset.nombre=m.n;
+  div.dataset.promesa=m.p;
+  div.onclick=function(){ omTocar(this.dataset.nombre, parseFloat(this.dataset.promesa)); };
+  div.oncontextmenu=function(ev){ ev.preventDefault(); omAjustar(this.dataset.nombre, parseFloat(this.dataset.promesa)); };
+  div.innerHTML=
+    '<div class="col-avatar" style="background:'+avatarColor(m.n)+';">'+initiales(m.n)+'</div>'+
+    '<div class="col-info"><div class="col-name">'+m.n+'</div>'+
+    '<div class="col-promesa">Promesa: '+fmt(m.p)+(e.obs?' · '+e.obs:'')+'</div></div>'+
+    '<div class="col-right"><div class="col-amount">'+amt+'</div><span style="font-size:1.3rem;">'+ic+'</span>'+
+    '<div class="col-actions">'+
+    '<button class="col-action-btn om-ajuste-btn" data-nombre="'+m.n.replace(/"/g,'&quot;')+'" data-promesa="'+m.p+'">✏️</button>'+
+    '<button class="col-action-btn om-desmarcar-btn" data-nombre="'+m.n.replace(/"/g,'&quot;')+'">↩️</button>'+
+    '</div></div>';
+  div.querySelector('.om-ajuste-btn').onclick=function(e){ e.stopPropagation(); omAjustar(this.dataset.nombre,parseFloat(this.dataset.promesa)); };
+  div.querySelector('.om-desmarcar-btn').onclick=function(e){ e.stopPropagation(); omDesmarcar(this.dataset.nombre); };
+  return div;
+}
+
+function omTocar(nombre,promesa){
+  const e=omEstado[nombre];
+  if(!e||e.est==='pend'){omEstado[nombre]={est:'pag',monto:promesa,obs:''};if(navigator.vibrate)navigator.vibrate(40);}
+  else{omAjustar(nombre,promesa);return;}
+  omRenderDetalle();
+}
+function omLongPress(ev,nombre,promesa){ev.preventDefault();omAjustar(nombre,promesa);}
+
+function omAjustar(nombre,promesa){
+  const e=omEstado[nombre]||{};
+  document.getElementById('m-om-ajuste-title').textContent='✏️ '+nombre;
+  document.getElementById('om-aj-monto').value=e.monto||promesa;
+  document.getElementById('om-aj-obs').value=e.obs||'';
+  document.getElementById('om-aj-nombre').value=nombre;
+  document.getElementById('om-aj-promesa').value=promesa;
+  openModal('m-om-ajuste');
+}
+function omConfirmarAjuste(){
+  const nombre=document.getElementById('om-aj-nombre').value;
+  const promesa=parseFloat(document.getElementById('om-aj-promesa').value);
+  const monto=parseFloat(document.getElementById('om-aj-monto').value);
+  const obs=document.getElementById('om-aj-obs').value.trim();
+  if(!monto||monto<=0){toast('Ingresa un monto válido','warn');return;}
+  omEstado[nombre]={est:monto!==promesa?'ajus':'pag',monto,obs};
+  closeModal('m-om-ajuste');
+  omRenderDetalle();
+}
+function omDesmarcar(n){omEstado[n]={est:'pend',monto:0,obs:''};omRenderDetalle();}
+function omDelExtra(i){if(omExtras){omExtras.splice(i,1);omRenderDetalle();}}
+
+function omGuardarExtra(){
+  const nombre=document.getElementById('om-ex-nombre').value.trim()||'Anónimo';
+  const monto=parseFloat(document.getElementById('om-ex-monto').value);
+  const obs=document.getElementById('om-ex-obs').value.trim();
+  if(!monto||monto<=0){toast('Ingresa un monto válido','warn');return;}
+  if(!omExtras) omExtras=[];
+  omExtras.push({nombre,monto,obs});
+  document.getElementById('om-ex-nombre').value='';
+  document.getElementById('om-ex-monto').value='';
+  document.getElementById('om-ex-obs').value='';
+  closeModal('m-om-extra');
+  omRenderDetalle();
+  toast(nombre+' — '+fmt(monto)+' agregado');
+}
+
+function omGuardarColecta(){
+  const ciclo=loadOM().find(c=>c.id===omCicloActual); if(!ciclo) return;
+  const fecha=document.getElementById('om-fecha').value;
+  if(!fecha){toast('Selecciona la fecha','warn');return;}
+  const lista=omFreq==='semanal'?PSEM:PQUIN;
+  const pagados=lista.filter(m=>{const e=omEstado[m.n];return e&&(e.est==='pag'||e.est==='ajus');});
+  if(!pagados.length&&!(omExtras&&omExtras.length)){toast('No hay aportaciones marcadas','warn');return;}
+  const total=pagados.reduce((s,m)=>s+omEstado[m.n].monto,0)+((omExtras||[]).reduce((s,e)=>s+e.monto,0));
+  const nombreCiclo='Ofrenda Misionera '+ciclo.nombre;
+  if(!confirm('Guardar colecta? '+fmt(total)+' de '+(pagados.length+(omExtras||[]).length)+' aportantes. Fecha: '+fecha)) return;
+  const mov=loadMov(); const h=hora();
+  pagados.forEach(m=>{
+    const e=omEstado[m.n];
+    const rec={id:uid(),tipo:'Ingreso',fecha,hora:h,concepto:nombreCiclo,categoria:nombreCiclo,
+      monto:e.monto,metodo:'Efectivo',aportante:m.n,responsable:m.n,
+      observaciones:e.obs||(e.est==='ajus'?'Promesa: '+fmt(m.p):''),origen:'ofrenda-misionera'};
+    mov.push(rec);
+    if(typeof window.fbSaveMov==='function') window.fbSaveMov(rec);
+  });
+  (omExtras||[]).forEach(e=>{
+    const rec={id:uid(),tipo:'Ingreso',fecha,hora:h,concepto:nombreCiclo,categoria:nombreCiclo,
+      monto:e.monto,metodo:'Efectivo',aportante:e.nombre,responsable:e.nombre,
+      observaciones:e.obs||'',origen:'ofrenda-misionera'};
+    mov.push(rec);
+    if(typeof window.fbSaveMov==='function') window.fbSaveMov(rec);
+  });
+  saveMov(mov);
+  omEstado={}; omExtras=[];
+  toast('Colecta guardada: '+fmt(total));
+  omRenderDetalle();
+}
+</script>
+
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
+    authDomain: "mayordomia-ibfilm.firebaseapp.com",
+    projectId: "mayordomia-ibfilm",
+    storageBucket: "mayordomia-ibfilm.firebasestorage.app",
+    messagingSenderId: "460839237215",
+    appId: "1:460839237215:web:82418bf1627eb9c40a8dea"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const COL_MOV='movimientos', COL_MEM='miembros', COL_EV='eventos', COL_OM='om_ciclos';
+
+  function setSyncStatus(ok,msg){
+    const el=document.getElementById('sync-status');
+    if(el){el.textContent=(ok?'☁️ ':'⚠️ ')+msg;el.style.color=ok?'#1d7a4e':'#d97706';}
+  }
+
+  window.fbSaveMov = async m => { try{ await setDoc(doc(db,COL_MOV,m.id),m); setSyncStatus(true,'Sincronizado'); }catch(e){ setSyncStatus(false,'Sin conexión'); } };
+  window.fbDelMov  = async id => { try{ await deleteDoc(doc(db,COL_MOV,id)); }catch(e){} };
+  window.fbSaveMem = async m => { try{ await setDoc(doc(db,COL_MEM,m.id),m); }catch(e){} };
+  window.fbDelMem  = async id => { try{ await deleteDoc(doc(db,COL_MEM,id)); }catch(e){} };
+  window.fbSaveEv  = async ev => { try{ await setDoc(doc(db,COL_EV,ev.id),ev); }catch(e){} };
+  window.fbDelEv   = async id => { try{ await deleteDoc(doc(db,COL_EV,id)); }catch(e){} };
+  window.fbSaveOM  = async ciclo => { try{ await setDoc(doc(db,COL_OM,ciclo.id),ciclo); }catch(e){} };
+
+  async function syncFromCloud(){
+    setSyncStatus(true,'Sincronizando...');
+    try{
+      const deletedIds=JSON.parse(localStorage.getItem('ibfilm_deleted_ids')||'[]');
+      // Movimientos
+      const movSnap=await getDocs(collection(db,COL_MOV));
+      const movsFB=[]; movSnap.forEach(d=>movsFB.push(d.data()));
+      if(movsFB.length>0){
+        const filtered=movsFB.filter(m=>!deletedIds.includes(m.id));
+        deletedIds.forEach(id=>{ window.fbDelMov(id); });
+        const local=JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]');
+        const fbIds=new Set(filtered.map(m=>m.id));
+        const onlyLocal=local.filter(m=>!fbIds.has(m.id)&&!deletedIds.includes(m.id));
+        localStorage.setItem('ibfilm_movimientos_v2',JSON.stringify([...filtered,...onlyLocal]));
+      }
+      // Miembros
+      const memSnap=await getDocs(collection(db,COL_MEM));
+      const mems=[]; memSnap.forEach(d=>mems.push(d.data()));
+      if(mems.length>0) localStorage.setItem('ibfilm_miembros_v1',JSON.stringify(mems));
+      // Eventos/Promesas
+      const evSnap=await getDocs(collection(db,COL_EV));
+      const evsFB=[]; evSnap.forEach(d=>evsFB.push(d.data()));
+      if(evsFB.length>0){
+        const evsLocal=JSON.parse(localStorage.getItem('ibfilm_promesas_v1')||'[]');
+        const merged=evsFB.map(fbEv=>{
+          const localEv=evsLocal.find(l=>l.id===fbEv.id);
+          if(!localEv) return fbEv;
+          const fbA=(fbEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
+          const loA=(localEv.participantes||[]).reduce((s,p)=>s+(p.abonos||[]).length,0);
+          return loA>=fbA?localEv:fbEv;
+        });
+        evsLocal.forEach(lev=>{if(!merged.find(m=>m.id===lev.id)) merged.push(lev);});
+        localStorage.setItem('ibfilm_promesas_v1',JSON.stringify(merged));
+        merged.forEach(ev=>{if(window.fbSaveEv) window.fbSaveEv(ev);});
+      }
+      // Ciclos OM
+      const omSnap=await getDocs(collection(db,COL_OM));
+      const omCiclos=[]; omSnap.forEach(d=>omCiclos.push(d.data()));
+      if(omCiclos.length>0) localStorage.setItem('ibfilm_om_ciclos_v1',JSON.stringify(omCiclos));
+      setSyncStatus(true,'Todo sincronizado');
+      if(typeof renderDash==='function') renderDash();
+    }catch(e){ setSyncStatus(false,'Sin conexión — datos locales'); }
+  }
+
+  window.fbUploadLocal = async () => {
+    setSyncStatus(true,'Subiendo datos...');
+    try{
+      const batch=writeBatch(db);
+      const movs=JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]');
+      const mems=JSON.parse(localStorage.getItem('ibfilm_miembros_v1')||'[]');
+      const evs=JSON.parse(localStorage.getItem('ibfilm_promesas_v1')||'[]');
+      const oms=JSON.parse(localStorage.getItem('ibfilm_om_ciclos_v1')||'[]');
+      movs.forEach(m=>batch.set(doc(db,COL_MOV,m.id),m));
+      mems.forEach(m=>batch.set(doc(db,COL_MEM,m.id),m));
+      evs.forEach(e=>batch.set(doc(db,COL_EV,e.id),e));
+      oms.forEach(o=>batch.set(doc(db,COL_OM,o.id),o));
+      await batch.commit();
+      setSyncStatus(true,'Datos subidos correctamente');
+      if(typeof toast==='function') toast('Datos sincronizados con Firebase');
+    }catch(e){ setSyncStatus(false,'Error: '+e.message); }
+  };
+
+  document.addEventListener('DOMContentLoaded',()=>{ setTimeout(syncFromCloud,1500); });
+</script>
+
 </body>
 </html>
