@@ -1751,6 +1751,11 @@ function guardarMiembro() {
 function deleteMember(id) {
   if (!confirm('¿Eliminar este miembro?')) return;
   saveMem(loadMem().filter(m => m.id !== id));
+  // Delete from Firebase immediately
+  if (typeof window.fbDelMem === 'function') window.fbDelMem(id);
+  // Track deleted ID so sync doesn't restore it
+  const _delM = JSON.parse(localStorage.getItem('ibfilm_deleted_mem')||'[]');
+  if (!_delM.includes(id)) { _delM.push(id); localStorage.setItem('ibfilm_deleted_mem', JSON.stringify(_delM)); }
   renderMembers();
   toast('🗑️ Miembro eliminado', 'warn');
 }
@@ -3459,7 +3464,10 @@ function cierreGuardar() {
     </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;" class="no-print">
-      <div class="page-title">🌍 Ofrenda Misionera 25-26</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="nav('colecta')">← Ciclos</button>
+        <div class="page-title" id="colecta-ciclo-titulo" style="margin-bottom:0;">🌍 Ofrenda Misionera</div>
+      </div>
       <button class="btn btn-ghost btn-sm no-print" onclick="window.print()">🖨️</button>
     </div>
     <div class="page-sub no-print">Toca el nombre del hermano cuando entregue su ofrenda misionera</div>
@@ -3953,6 +3961,11 @@ function promEliminarEvento(id) {
   if (!ev) return;
   if (!confirm('¿Eliminar el evento "' + ev.nombre + '" y todos sus registros?')) return;
   saveProm(loadProm().filter(e => e.id !== id));
+  // Delete from Firebase immediately
+  if (typeof window.fbDelEv === 'function') window.fbDelEv(id);
+  // Track deleted event so sync doesn't restore it
+  const _delE = JSON.parse(localStorage.getItem('ibfilm_deleted_ev')||'[]');
+  if (!_delE.includes(id)) { _delE.push(id); localStorage.setItem('ibfilm_deleted_ev', JSON.stringify(_delE)); }
   renderPromLista();
   toast('Evento eliminado','warn');
 }
@@ -4349,14 +4362,19 @@ function promExportCSV() {
         if (mems.length > 0) {
           localStorage.setItem('ibfilm_miembros_v1', JSON.stringify(mems));
         }
-        // Eventos — merge con datos locales para no perder abonos
+        // Eventos — merge con datos locales, respetando eliminaciones
+        const deletedEv = JSON.parse(localStorage.getItem('ibfilm_deleted_ev')||'[]');
         const evSnap = await getDocs(collection(db, COL_EV));
         const evsFB = [];
         evSnap.forEach(d => evsFB.push(d.data()));
         if (evsFB.length > 0) {
-          const evsLocal = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]');
+          // Delete from Firebase events marked as deleted locally
+          deletedEv.forEach(id => { if(window.fbDelEv) window.fbDelEv(id); });
+          // Filter out deleted events
+          const evsFBFiltered = evsFB.filter(e => !deletedEv.includes(e.id));
+          const evsLocal = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]').filter(e => !deletedEv.includes(e.id));
           // Merge: para cada evento, usar el que tenga más abonos (más actualizado)
-          const merged = evsFB.map(fbEv => {
+          const merged = evsFBFiltered.map(fbEv => {
             const localEv = evsLocal.find(l => l.id === fbEv.id);
             if (!localEv) return fbEv;
             // Comparar total de abonos en participantes
@@ -4544,6 +4562,8 @@ function omEntrarCiclo(ciclo) {
   // Actualizar título de la página de colecta
   var tit = document.getElementById('print-colecta-ciclo');
   if (tit) tit.textContent = 'Reporte de Ofrenda Misionera ' + ciclo.nombre;
+  var titMain = document.getElementById('colecta-ciclo-titulo');
+  if (titMain) titMain.textContent = '🌍 Ofrenda Misionera ' + ciclo.nombre;
   // Actualizar categoría que usará guardarColecta
   window.omCicloNombre = 'Ofrenda Misionera ' + ciclo.nombre;
   // Navegar a la página de colecta existente
@@ -4582,46 +4602,3 @@ function omEditarCiclo(id) {
   });
   openModal('m-om-ciclo');
 }
-
-function omGuardarCiclo() {
-  var nombre = document.getElementById('omc-nombre').value.trim();
-  if (!nombre) { toast('Escribe el nombre del ciclo', 'warn'); return; }
-  var editId = document.getElementById('omc-id').value;
-  var estadoBtn = document.querySelector('#omc-estado button.sel');
-  var estado = estadoBtn ? estadoBtn.dataset.v : 'activo';
-  var ciclos = loadOMCiclos();
-  var obj = {
-    nombre: nombre,
-    inicio: document.getElementById('omc-inicio').value,
-    fin: document.getElementById('omc-fin').value,
-    estado: estado
-  };
-  if (editId) {
-    var idx = ciclos.findIndex(function(c){ return c.id === editId; });
-    if (idx >= 0) { Object.assign(ciclos[idx], obj); }
-    else { ciclos.push(Object.assign({ id: editId }, obj)); }
-  } else {
-    ciclos.push(Object.assign({ id: uid() }, obj));
-  }
-  saveOMCiclos(ciclos);
-  closeModal('m-om-ciclo');
-  omRenderCiclos();
-  toast('Ciclo "' + nombre + '" guardado');
-}
-
-function omEliminarCiclo(id) {
-  var ciclos = loadOMCiclos();
-  var ciclo = ciclos.find(function(c){ return c.id === id; });
-  if (!ciclo) return;
-  if (!confirm('¿Eliminar el ciclo "' + ciclo.nombre + '"? Los movimientos NO se eliminarán.')) return;
-  saveOMCiclos(ciclos.filter(function(c){ return c.id !== id; }));
-  omRenderCiclos();
-  toast('Ciclo eliminado', 'warn');
-}
-
-/* Agregar fbSaveOM a Firebase */
-window.fbSaveOM = null; // Se definirá en el módulo de Firebase
-</script>
-
-</body>
-</html>
