@@ -2020,6 +2020,215 @@ function deleteMember(id) {
 }
 
 /* ══════════════════════════════════════════
+   REPARACIÓN SEGURA DE MIEMBROS / CICLO OM
+   - No elimina movimientos.
+   - Conserva un solo miembro por nombre.
+   - Actualiza los movimientos para apuntar al miembro conservado.
+   - Consolida el ciclo misionero oficial 2025-2026.
+══════════════════════════════════════════ */
+const OM_CICLO_OFICIAL = {
+  nombre: '2025-2026',
+  inicio: '2025-08-17',
+  fin: '2026-08-09',
+  estado: 'activo'
+};
+
+function normMemberName(nombre) {
+  return String(nombre || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function memberInfoScore(m) {
+  let score = 0;
+  ['tel','grupo','ministerio'].forEach(k => { if ((m[k] || '').trim()) score += 3; });
+  const obs = (m.obs || '').trim();
+  if (obs && !/^Promesa misionera:/i.test(obs)) score += 2;
+  if (m.estatus === 'Activo') score += 1;
+  return score;
+}
+
+function deduplicateMembersData(members, movements) {
+  const mems = Array.isArray(members) ? members.filter(m => m && m.id && m.nombre) : [];
+  const movs = Array.isArray(movements) ? movements : [];
+  const refs = {};
+  movs.forEach(m => { if (m && m.miembroId) refs[m.miembroId] = (refs[m.miembroId] || 0) + 1; });
+
+  const groups = {};
+  mems.forEach((m, idx) => {
+    const key = normMemberName(m.nombre);
+    if (!key) return;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ m, idx });
+  });
+
+  const keepIds = new Set();
+  const idMap = {};
+  const eliminados = [];
+  Object.values(groups).forEach(group => {
+    group.sort((a, b) => {
+      const ar = refs[a.m.id] || 0, br = refs[b.m.id] || 0;
+      if (br !== ar) return br - ar;
+      const ai = memberInfoScore(a.m), bi = memberInfoScore(b.m);
+      if (bi !== ai) return bi - ai;
+      return a.idx - b.idx;
+    });
+    const keep = group[0].m;
+    keepIds.add(keep.id);
+    group.slice(1).forEach(x => {
+      idMap[x.m.id] = keep.id;
+      eliminados.push(x.m.id);
+      // Recuperar datos útiles de duplicados si el miembro conservado los tiene vacíos.
+      ['tel','grupo','ministerio','obs'].forEach(k => {
+        if (!(keep[k] || '').trim() && (x.m[k] || '').trim()) keep[k] = x.m[k];
+      });
+      if (!keep.promesa && x.m.promesa) keep.promesa = x.m.promesa;
+      if (!keep.frecuencia && x.m.frecuencia) keep.frecuencia = x.m.frecuencia;
+    });
+  });
+
+  const miembros = mems.filter(m => keepIds.has(m.id));
+  return { miembros, idMap, eliminados };
+}
+window.deduplicateMembersData = deduplicateMembersData;
+
+function updateDeletedIdsStorage(key, ids) {
+  const current = JSON.parse(localStorage.getItem(key) || '[]');
+  ids.forEach(id => { if (id && !current.includes(id)) current.push(id); });
+  localStorage.setItem(key, JSON.stringify(current));
+}
+
+function mergeManualMatrixData(a, b) {
+  const out = JSON.parse(JSON.stringify(a || { semanal:{}, quincenal:{} }));
+  ['semanal','quincenal'].forEach(freq => {
+    out[freq] = out[freq] || {};
+    const src = (b || {})[freq] || {};
+    Object.keys(src).forEach(nombre => {
+      out[freq][nombre] = out[freq][nombre] || {};
+      Object.assign(out[freq][nombre], src[nombre] || {});
+    });
+  });
+  return out;
+}
+
+function repararCicloMisioneroOficial() {
+  let ciclos = [];
+  try { ciclos = loadOMCiclos(); } catch(e) { ciclos = []; }
+  let movs = loadMov();
+  const cicloNombreCompleto = 'Ofrenda Misionera ' + OM_CICLO_OFICIAL.nombre;
+  const esOficial = c => String(c?.nombre || '').replace(/\s+/g,'').includes('2025-2026');
+  const scoreCiclo = c => movs.filter(m => m && (m.cicloId === c.id || m.cicloNombre === ('Ofrenda Misionera ' + c.nombre) || m.concepto === ('Ofrenda Misionera ' + c.nombre))).length;
+
+  let candidatos = ciclos.filter(esOficial);
+  let keep = candidatos.sort((a,b) => scoreCiclo(b) - scoreCiclo(a))[0];
+  if (!keep) {
+    keep = { id: 'om_2025_2026', createdAt: new Date().toISOString() };
+  }
+  keep.nombre = OM_CICLO_OFICIAL.nombre;
+  keep.inicio = OM_CICLO_OFICIAL.inicio;
+  keep.fin = OM_CICLO_OFICIAL.fin;
+  keep.estado = OM_CICLO_OFICIAL.estado;
+  keep.updatedAt = new Date().toISOString();
+
+  const otros = ciclos.filter(c => c.id !== keep.id);
+  const otrosIds = otros.map(c => c.id);
+  const otrosNombres = otros.map(c => 'Ofrenda Misionera ' + (c.nombre || '')).filter(Boolean);
+
+  movs = movs.map(m => {
+    if (!m) return m;
+    const esMisiones = m.categoria === 'Misiones' || String(m.concepto || '').includes('Ofrenda Misionera') || String(m.cicloNombre || '').includes('Ofrenda Misionera');
+    const enRango = !m.fecha || (m.fecha >= OM_CICLO_OFICIAL.inicio && m.fecha <= OM_CICLO_OFICIAL.fin);
+    const vieneDeCicloEliminado = otrosIds.includes(m.cicloId) || otrosNombres.includes(m.cicloNombre) || otrosNombres.includes(m.concepto);
+    const vieneDelOficial = m.cicloId === keep.id || m.cicloNombre === cicloNombreCompleto || m.concepto === cicloNombreCompleto;
+    if (esMisiones && (enRango || vieneDeCicloEliminado || vieneDelOficial)) {
+      return Object.assign({}, m, {
+        cicloId: keep.id,
+        cicloNombre: cicloNombreCompleto,
+        concepto: cicloNombreCompleto,
+        categoria: 'Misiones'
+      });
+    }
+    return m;
+  });
+  saveMov(movs);
+
+  localStorage.setItem(K_OM_CICLOS, JSON.stringify([keep]));
+  if (typeof window.fbSaveOM === 'function') window.fbSaveOM(keep);
+  otrosIds.forEach(id => { if (typeof window.fbDelOM === 'function') window.fbDelOM(id); });
+  updateDeletedIdsStorage('ibfilm_deleted_om', otrosIds);
+
+  // Promesas por ciclo: conservar las del ciclo oficial y migrar si estaban en otro id.
+  const allProm = loadOMPromesasAll();
+  if (!allProm[keep.id]) {
+    const origen = otrosIds.find(id => allProm[id]);
+    allProm[keep.id] = origen ? allProm[origen] : omPromesasBaseActuales();
+  }
+  otrosIds.forEach(id => {
+    if (allProm[id]) delete allProm[id];
+    if (typeof window.fbDelOMProm === 'function') window.fbDelOMProm(id);
+  });
+  saveOMPromesasAll(allProm);
+  if (typeof window.fbSaveOMProm === 'function') window.fbSaveOMProm(keep.id, allProm[keep.id]);
+
+  // Matriz histórica manual: fusionar capturas antiguas hacia el ciclo oficial.
+  try {
+    const mat = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}');
+    let base = mat[keep.id] || { cicloId: keep.id, semanal:{}, quincenal:{} };
+    otrosIds.forEach(id => {
+      if (mat[id]) {
+        base = mergeManualMatrixData(base, mat[id]);
+        delete mat[id];
+      }
+    });
+    base.cicloId = keep.id;
+    base.updatedAt = new Date().toISOString();
+    mat[keep.id] = base;
+    localStorage.setItem('ibfilm_matriz_manual_v1', JSON.stringify(mat));
+    if (typeof window.fbSaveMatManual === 'function') window.fbSaveMatManual(keep.id, base);
+  } catch(e) {}
+
+  window.omCicloActivo = keep.id;
+  window.omCicloNombre = cicloNombreCompleto;
+  return { keep, ciclosEliminados: otrosIds.length };
+}
+
+function repararDuplicadosYCiclo() {
+  const memAntes = loadMem().length;
+  const movAntes = loadMov().length;
+  if (!confirm('Esta reparación conservará un solo registro por nombre de hermano/a, actualizará los movimientos para que apunten al registro conservado y dejará solamente el ciclo misionero 2025-2026. No se eliminarán movimientos ni montos. ¿Deseas continuar?')) return;
+
+  // Respaldo local automático antes de reparar.
+  const backup = {
+    fecha: new Date().toISOString(),
+    movimientos: loadMov(),
+    miembros: loadMem(),
+    ciclosMisioneros: loadOMCiclos(),
+    promesasMisioneras: loadOMPromesasAll(),
+    matrizManual: JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}')
+  };
+  localStorage.setItem('ibfilm_backup_antes_reparacion', JSON.stringify(backup));
+
+  const res = deduplicateMembersData(loadMem(), loadMov());
+  let movs = loadMov().map(m => {
+    if (m && m.miembroId && res.idMap[m.miembroId]) return Object.assign({}, m, { miembroId: res.idMap[m.miembroId] });
+    return m;
+  });
+  localStorage.setItem(K_MOV, JSON.stringify(movs));
+  updateDeletedIdsStorage('ibfilm_deleted_mem', res.eliminados);
+  res.eliminados.forEach(id => { if (typeof window.fbDelMem === 'function') window.fbDelMem(id); });
+  saveMem(res.miembros);
+  saveMov(movs);
+
+  const cicloRes = repararCicloMisioneroOficial();
+  updateBackupStats();
+  if (typeof renderMembers === 'function') renderMembers();
+  if (typeof omRenderCiclos === 'function') omRenderCiclos();
+  if (typeof matRender === 'function') matRender();
+  toast('✅ Reparación lista: miembros ' + memAntes + ' → ' + res.miembros.length + '. Ciclos eliminados: ' + cicloRes.ciclosEliminados + '. Movimientos conservados: ' + movAntes + '.');
+}
+
+/* ══════════════════════════════════════════
    MOVIMIENTOS
 ══════════════════════════════════════════ */
 function fillMovCatFilter() {
@@ -2769,7 +2978,8 @@ function precargarMiembros() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  precargarMiembros();
+  // precargarMiembros();
+  // Desactivado para evitar duplicados al abrir la app en dispositivos nuevos con Firebase.
   applyConfig();
   updateHeaderStats();
   initSidebar();
@@ -3342,7 +3552,16 @@ function matManualSet(cicloId, freq, nombre, iso, monto, promesa) {
   }
   c.updatedAt = new Date().toISOString();
   all[cicloId] = c;
-  matManualSaveAll(all);
+  // Guardado local inmediato
+  localStorage.setItem(K_MAT_MANUAL, JSON.stringify(all));
+  // Sincronización granular: sube/baja solo la celda editada para evitar sobrescribir
+  // capturas hechas desde otro dispositivo. Si no existe la función nueva, usa el respaldo anterior.
+  if (typeof window.fbSaveMatManualCell === 'function') {
+    const rec = val <= 0 ? null : (c[freq] && c[freq][nombre] && c[freq][nombre][iso] ? c[freq][nombre][iso] : null);
+    window.fbSaveMatManualCell(cicloId, freq, nombre, iso, rec);
+  } else {
+    matManualSaveAll(all);
+  }
 }
 function matManualCount(cicloId) {
   const c = matManualCiclo(cicloId);
@@ -4218,6 +4437,16 @@ function cierreGuardar() {
       <button class="btn btn-ghost btn-block" onclick="document.getElementById('file-import').click()">📥 Importar respaldo JSON</button>
       <button class="btn btn-ghost btn-block" onclick="exportarCSVCompleto()">📊 Exportar CSV completo</button>
       <button class="btn btn-ghost btn-block" onclick="exportarMiembrosCSV()">👥 Exportar miembros CSV</button>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:4px solid var(--amber);">
+      <div class="config-row">
+        <div>
+          <div class="config-label">Reparar duplicados</div>
+          <div class="config-sub">Conserva movimientos, une miembros repetidos por nombre y deja activo solo el ciclo 2025-2026.</div>
+        </div>
+        <button class="btn btn-gold btn-sm" onclick="repararDuplicadosYCiclo()">🛠️ Reparar</button>
+      </div>
     </div>
 
     <input type="file" id="file-import" accept=".json" style="display:none;" onchange="importarJSON(event)">
@@ -5283,19 +5512,111 @@ function promExportCSV() {
     };
 
 
+    // ── UTILIDADES DE SINCRONIZACIÓN PARA MATRIZ HISTÓRICA ──
+    function cloneObj(obj) {
+      try { return JSON.parse(JSON.stringify(obj || {})); } catch(e) { return {}; }
+    }
+    function matMergeData(localData, cloudData) {
+      const out = cloneObj(localData);
+      const cloud = cloneObj(cloudData);
+      out.semanal = out.semanal || {};
+      out.quincenal = out.quincenal || {};
+      ['semanal','quincenal'].forEach(freq => {
+        out[freq] = out[freq] || {};
+        const cloudFreq = cloud[freq] || {};
+        Object.keys(cloudFreq).forEach(nombre => {
+          out[freq][nombre] = out[freq][nombre] || {};
+          const cloudByDate = cloudFreq[nombre] || {};
+          Object.keys(cloudByDate).forEach(iso => {
+            const cRec = cloudByDate[iso];
+            const lRec = out[freq][nombre][iso];
+            const cTime = new Date((cRec && cRec.updatedAt) || cloud.updatedAt || 0).getTime();
+            const lTime = new Date((lRec && lRec.updatedAt) || out.updatedAt || 0).getTime();
+            if (!lRec || cTime >= lTime) out[freq][nombre][iso] = cRec;
+          });
+        });
+      });
+      const lt = new Date(out.updatedAt || 0).getTime();
+      const ct = new Date(cloud.updatedAt || 0).getTime();
+      out.updatedAt = ct > lt ? cloud.updatedAt : (out.updatedAt || cloud.updatedAt || new Date().toISOString());
+      return out;
+    }
+    function matMergeAll(localAll, cloudAll) {
+      const merged = cloneObj(localAll);
+      Object.keys(cloudAll || {}).forEach(cicloId => {
+        merged[cicloId] = matMergeData(merged[cicloId] || { cicloId, semanal:{}, quincenal:{} }, cloudAll[cicloId]);
+      });
+      return merged;
+    }
+
     // ── GUARDAR captura histórica de Matriz General (solo visual) ──
+    // Respaldo general: fusiona contra la nube antes de guardar para no pisar datos de otro dispositivo.
     window.fbSaveMatManual = async function(cicloId, data) {
       try {
         if (!cicloId) return;
-        await setDoc(doc(db, COL_MAT_MANUAL, cicloId), {
+        const ref = doc(db, COL_MAT_MANUAL, cicloId);
+        const snap = await getDoc(ref);
+        const cloudData = snap.exists() ? ((snap.data() || {}).data || {}) : {};
+        const mergedData = matMergeData(cloudData, data || {});
+        mergedData.cicloId = cicloId;
+        mergedData.updatedAt = new Date().toISOString();
+        await setDoc(ref, {
           id: cicloId,
           cicloId: cicloId,
-          data: data,
-          updatedAt: (data && data.updatedAt) || new Date().toISOString()
+          data: mergedData,
+          updatedAt: mergedData.updatedAt
         });
         setSyncStatus(true, 'Sincronizado');
       } catch(e) { setSyncStatus(false, 'Sin conexión — guardado local'); }
     };
+
+    // Guardado granular por celda. Evita que la laptop sobrescriba capturas hechas en iPad.
+    window.fbSaveMatManualCell = async function(cicloId, freq, nombre, iso, rec) {
+      try {
+        if (!cicloId || !freq || !nombre || !iso) return;
+        const ref = doc(db, COL_MAT_MANUAL, cicloId);
+        const snap = await getDoc(ref);
+        const data = snap.exists() ? cloneObj((snap.data() || {}).data || {}) : { cicloId, semanal:{}, quincenal:{} };
+        data.cicloId = cicloId;
+        data.semanal = data.semanal || {};
+        data.quincenal = data.quincenal || {};
+        data[freq] = data[freq] || {};
+        data[freq][nombre] = data[freq][nombre] || {};
+        if (!rec || !(parseFloat(rec.monto || 0) > 0)) {
+          delete data[freq][nombre][iso];
+          if (Object.keys(data[freq][nombre]).length === 0) delete data[freq][nombre];
+        } else {
+          data[freq][nombre][iso] = Object.assign({}, rec, { updatedAt: new Date().toISOString() });
+        }
+        data.updatedAt = new Date().toISOString();
+        await setDoc(ref, { id:cicloId, cicloId:cicloId, data:data, updatedAt:data.updatedAt });
+        setSyncStatus(true, 'Sincronizado');
+      } catch(e) {
+        setSyncStatus(false, 'Sin conexión — guardado local');
+      }
+    };
+
+    let matManualUnsub = null;
+    function startMatManualRealtime() {
+      if (matManualUnsub) return;
+      matManualUnsub = onSnapshot(collection(db, COL_MAT_MANUAL), snap => {
+        const cloudAll = {};
+        snap.forEach(d => {
+          const rec = d.data();
+          if (rec && rec.cicloId && rec.data) cloudAll[rec.cicloId] = rec.data;
+        });
+        const localAll = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}');
+        const merged = matMergeAll(localAll, cloudAll);
+        localStorage.setItem('ibfilm_matriz_manual_v1', JSON.stringify(merged));
+        if (typeof window.matRender === 'function') {
+          const pg = document.getElementById('pg-matriz');
+          if (!pg || pg.classList.contains('active')) window.matRender();
+        }
+        setSyncStatus(true, 'Sincronizado en tiempo real');
+      }, err => {
+        setSyncStatus(false, 'Sin conexión — guardado local');
+      });
+    }
 
     // ── SYNC INICIAL: bajar datos de Firestore a localStorage ──
     async function syncFromCloud() {
@@ -5318,13 +5639,36 @@ function promExportCSV() {
           const merged = [...movsFiltered, ...onlyLocal];
           localStorage.setItem('ibfilm_movimientos_v2', JSON.stringify(merged));
         }
-        // Miembros
+        // Miembros — merge seguro, respetando eliminaciones y reparando duplicados por nombre.
+        const deletedMem = JSON.parse(localStorage.getItem('ibfilm_deleted_mem')||'[]');
         const memSnap = await getDocs(collection(db, COL_MEM));
-        const mems = [];
-        memSnap.forEach(d => mems.push(d.data()));
-        if (mems.length > 0) {
-          localStorage.setItem('ibfilm_miembros_v1', JSON.stringify(mems));
+        const memsFB = [];
+        memSnap.forEach(d => memsFB.push(d.data()));
+        deletedMem.forEach(id => { if(window.fbDelMem) window.fbDelMem(id); });
+        const memsLocal = JSON.parse(localStorage.getItem('ibfilm_miembros_v1') || '[]').filter(m => !deletedMem.includes(m.id));
+        const memsFiltered = memsFB.filter(m => m && !deletedMem.includes(m.id));
+        const byId = {};
+        [...memsFiltered, ...memsLocal].forEach(m => { if (m && m.id) byId[m.id] = Object.assign({}, byId[m.id] || {}, m); });
+        let mergedMems = Object.values(byId);
+        if (window.deduplicateMembersData) {
+          const ded = window.deduplicateMembersData(mergedMems, JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]'));
+          mergedMems = ded.miembros;
+          if (ded.eliminados && ded.eliminados.length) {
+            const delMem = JSON.parse(localStorage.getItem('ibfilm_deleted_mem')||'[]');
+            ded.eliminados.forEach(id => {
+              if (!delMem.includes(id)) delMem.push(id);
+              if (window.fbDelMem) window.fbDelMem(id);
+            });
+            localStorage.setItem('ibfilm_deleted_mem', JSON.stringify(delMem));
+            const movsNow = JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]').map(m => {
+              if (m && m.miembroId && ded.idMap[m.miembroId]) return Object.assign({}, m, { miembroId: ded.idMap[m.miembroId] });
+              return m;
+            });
+            localStorage.setItem('ibfilm_movimientos_v2', JSON.stringify(movsNow));
+            movsNow.forEach(m => { if (window.fbSaveMov && m && m.id) window.fbSaveMov(m); });
+          }
         }
+        localStorage.setItem('ibfilm_miembros_v1', JSON.stringify(mergedMems));
         // Eventos — merge con datos locales, respetando eliminaciones
         const deletedEv = JSON.parse(localStorage.getItem('ibfilm_deleted_ev')||'[]');
         const evSnap = await getDocs(collection(db, COL_EV));
@@ -5391,7 +5735,7 @@ function promExportCSV() {
         localStorage.setItem('ibfilm_om_promesas_v1', JSON.stringify(mergedProm));
         Object.entries(mergedProm).forEach(([cicloId, data]) => { if(window.fbSaveOMProm) window.fbSaveOMProm(cicloId, data); });
 
-        // Captura histórica de Matriz General — merge por updatedAt
+        // Captura histórica de Matriz General — merge granular por celda
         const matSnap = await getDocs(collection(db, COL_MAT_MANUAL));
         const matCloud = {};
         matSnap.forEach(d => {
@@ -5399,16 +5743,8 @@ function promExportCSV() {
           if (rec && rec.cicloId && rec.data) matCloud[rec.cicloId] = rec.data;
         });
         const matLocal = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}');
-        const mergedMat = Object.assign({}, matLocal);
-        Object.keys(matCloud).forEach(cicloId => {
-          const cloudData = matCloud[cicloId] || {};
-          const localData = matLocal[cicloId] || null;
-          const cloudTime = new Date(cloudData.updatedAt || 0).getTime();
-          const localTime = localData ? new Date(localData.updatedAt || 0).getTime() : 0;
-          if (!localData || cloudTime > localTime) mergedMat[cicloId] = cloudData;
-        });
+        const mergedMat = matMergeAll(matLocal, matCloud);
         localStorage.setItem('ibfilm_matriz_manual_v1', JSON.stringify(mergedMat));
-        Object.entries(mergedMat).forEach(([cicloId, data]) => { if(window.fbSaveMatManual) window.fbSaveMatManual(cicloId, data); });
 
         setSyncStatus(true, 'Todo sincronizado');
         // Refrescar la vista actual
@@ -5424,7 +5760,13 @@ function promExportCSV() {
       try {
         const batch = writeBatch(db);
         const movs = JSON.parse(localStorage.getItem('ibfilm_movimientos_v2') || '[]');
-        const mems = JSON.parse(localStorage.getItem('ibfilm_miembros_v1') || '[]');
+        let mems = JSON.parse(localStorage.getItem('ibfilm_miembros_v1') || '[]');
+        if (window.deduplicateMembersData) {
+          const ded = window.deduplicateMembersData(mems, JSON.parse(localStorage.getItem('ibfilm_movimientos_v2')||'[]'));
+          mems = ded.miembros;
+          localStorage.setItem('ibfilm_miembros_v1', JSON.stringify(mems));
+          ded.eliminados.forEach(id => { if (window.fbDelMem) window.fbDelMem(id); });
+        }
         const evs  = JSON.parse(localStorage.getItem('ibfilm_promesas_v1') || '[]');
         const omc  = JSON.parse(localStorage.getItem('ibfilm_om_ciclos_v1') || '[]');
         const omp  = JSON.parse(localStorage.getItem('ibfilm_om_promesas_v1') || '{}');
@@ -5446,6 +5788,7 @@ function promExportCSV() {
 
     // ── Iniciar sincronización al cargar ──
     document.addEventListener('DOMContentLoaded', () => {
+      startMatManualRealtime();
       setTimeout(syncFromCloud, 1500);
     });
   </script>
@@ -5650,9 +5993,9 @@ function omEntrarCiclo(ciclo) {
 
 /* Nuevo ciclo */
 function omNuevoCiclo() {
-  document.getElementById('omc-nombre').value = '';
-  document.getElementById('omc-inicio').value = '';
-  document.getElementById('omc-fin').value = '';
+  document.getElementById('omc-nombre').value = OM_CICLO_OFICIAL.nombre;
+  document.getElementById('omc-inicio').value = OM_CICLO_OFICIAL.inicio;
+  document.getElementById('omc-fin').value = OM_CICLO_OFICIAL.fin;
   document.getElementById('omc-id').value = '';
   document.getElementById('m-om-ciclo-title').textContent = 'Nuevo ciclo misionero';
   document.querySelectorAll('#omc-estado button').forEach(function(b) {
