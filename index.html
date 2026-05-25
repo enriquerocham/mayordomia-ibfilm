@@ -1121,6 +1121,21 @@ let repData     = [];     // datos del reporte general actual
    UTILIDADES
 ══════════════════════════════════════════ */
 const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+/* ── Toggle group helpers ── */
+function selMet(btn, groupId) {
+  const grp = document.getElementById(groupId);
+  if (grp) grp.querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.remove('sel'); b.classList.remove('on');
+  });
+  btn.classList.add('sel'); btn.classList.add('on');
+}
+function getSelMet(groupId) {
+  const grp = document.getElementById(groupId);
+  if (!grp) return '';
+  const sel = grp.querySelector('.toggle-btn.sel') || grp.querySelector('.toggle-btn.on');
+  return sel ? (sel.dataset.v || '') : '';
+};
 const hoy  = () => new Date().toISOString().split('T')[0];
 const fmt  = n  => '$' + parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtN = n  => parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1201,14 +1216,12 @@ function loadMov() { try { return JSON.parse(localStorage.getItem(K_MOV) || '[]'
 function saveMov(d) {
   localStorage.setItem(K_MOV, JSON.stringify(d));
   updateHeaderStats();
-  // Sync con Firebase (cada movimiento nuevo)
-  if (typeof window.fbSaveMov === 'function') {
-    const prev = JSON.parse(localStorage.getItem('_last_mov_count') || '0');
-    if (d.length > prev) {
-      const newest = d[d.length - 1];
-      window.fbSaveMov(newest);
-      localStorage.setItem('_last_mov_count', d.length);
-    }
+}
+// Llamar explícitamente cuando se agrega un movimiento nuevo
+function saveMov_withSync(d, movToSync) {
+  saveMov(d);
+  if (typeof window.fbSaveMov === 'function' && movToSync) {
+    window.fbSaveMov(movToSync);
   }
 }
 function loadMem() { try { return JSON.parse(localStorage.getItem(K_MEM) || '[]'); } catch { return []; } }
@@ -1313,18 +1326,17 @@ function renderDash() {
   setText('dash-bal-hoy',   fmt(ingH - egrH));
   setText('dash-count-hoy', cntH);
 
-  // Saldo por concepto/categoría agrupado (solo los que tienen saldo > 0)
+  // Saldo neto por categoría (ingresos - egresos de la misma categoría)
   const porCat = {};
   const LABEL_MISIONERA = 'Ofrenda Misionera 25-26';
-  mov.filter(m => m.tipo === 'Ingreso').forEach(m => {
+  mov.forEach(m => {
     let cat = (m.concepto && m.concepto !== m.categoria)
       ? m.concepto
       : (m.categoria || m.concepto || 'Otros');
-    // Solo agrupar "Misiones" legacy con "Ofrenda Misionera 25-26"
-    if (cat === 'Misiones') {
-      cat = LABEL_MISIONERA;
-    }
-    porCat[cat] = (porCat[cat] || 0) + m.monto;
+    // Agrupar "Misiones" legacy
+    if (cat === 'Misiones') cat = LABEL_MISIONERA;
+    const sign = m.tipo === 'Ingreso' ? 1 : -1;
+    porCat[cat] = (porCat[cat] || 0) + (m.monto * sign);
   });
   const catRows = Object.entries(porCat)
     .filter(([, v]) => v > 0)
@@ -1543,7 +1555,7 @@ function rrGuardar() {
     origen:       'registro-rapido'
   };
   mov.push(m);
-  saveMov(mov);
+  saveMov_withSync(mov, m);
 
   toast(`✅ Registro guardado correctamente en este dispositivo. ${aportante} — ${rrCategoria} — ${fmt(monto)}`);
   rrResetForm();
@@ -1879,6 +1891,8 @@ function guardarEdicionMov() {
   mov[i].aportante     = resp;
   mov[i].observaciones = document.getElementById('em-obs').value.trim();
   saveMov(mov);
+  // Sync edited movement to Firebase immediately
+  if (typeof window.fbSaveMov === 'function') window.fbSaveMov(mov[i]);
   closeModal('modal-mov');
   renderMov();
   toast('✅ Movimiento actualizado');
@@ -3358,6 +3372,9 @@ function omGuardarColecta() {
     });
   });
 
+  // Sync all new entries to Firebase
+  const allNew = [...pagados.map(m=>({...m,id:m.id})), ...omExtras.map(e=>({...e,id:e.id}))];
+  if (typeof window.fbSaveMov === 'function') mov.slice(-(pagados.length+omExtras.length)).forEach(m => window.fbSaveMov(m));
   saveMov(mov);
   omEstado = {}; omExtras = [];
   toast('✅ Colecta guardada: ' + fmt(total));
