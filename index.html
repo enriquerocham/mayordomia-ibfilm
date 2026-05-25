@@ -1125,15 +1125,16 @@ const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
 /* ── Toggle group helpers ── */
 function selMet(btn, groupId) {
   const grp = document.getElementById(groupId);
-  if (grp) grp.querySelectorAll('.toggle-btn').forEach(b => {
+  if (grp) grp.querySelectorAll('button').forEach(b => {
     b.classList.remove('sel'); b.classList.remove('on');
   });
-  btn.classList.add('sel'); btn.classList.add('on');
+  btn.classList.add('sel');
+  btn.classList.add('on');
 }
 function getSelMet(groupId) {
   const grp = document.getElementById(groupId);
   if (!grp) return '';
-  const sel = grp.querySelector('.toggle-btn.sel') || grp.querySelector('.toggle-btn.on');
+  const sel = grp.querySelector('.sel') || grp.querySelector('.on');
   return sel ? (sel.dataset.v || '') : '';
 };
 const hoy  = () => new Date().toISOString().split('T')[0];
@@ -3118,7 +3119,7 @@ function omNuevoCiclo() {
   ['omc-nombre','omc-inicio','omc-fin'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('omc-id').value = '';
   document.getElementById('m-om-ciclo-title').textContent = 'Nuevo ciclo misionero';
-  document.querySelectorAll('#omc-estado .tbtn').forEach(b =>
+  document.querySelectorAll('#omc-estado button').forEach(b =>
     b.classList.toggle('on', b.dataset.v === 'activo'));
   openModal('m-om-ciclo');
 }
@@ -3131,7 +3132,7 @@ function omEditarCiclo(id) {
   document.getElementById('omc-fin').value    = ciclo.fin    || '';
   document.getElementById('omc-id').value     = id;
   document.getElementById('m-om-ciclo-title').textContent = 'Editar ciclo';
-  document.querySelectorAll('#omc-estado .tbtn').forEach(b =>
+  document.querySelectorAll('#omc-estado button').forEach(b =>
     b.classList.toggle('on', b.dataset.v === (ciclo.estado||'activo')));
   openModal('m-om-ciclo');
 }
@@ -3881,7 +3882,7 @@ function omGuardarColecta() {
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
           <div class="fg" style="flex:1;min-width:150px;margin-bottom:0;">
             <label class="fl">Fecha del culto</label>
-            <input type="date" id="om-fecha" class="fc" onchange="omRenderDetalle()">
+            <input type="date" id="om-fecha" class="form-control" onchange="omRenderDetalle()">
           </div>
           <div class="fg" style="margin-bottom:0;">
             <label class="fl">Frecuencia</label>
@@ -4837,20 +4838,20 @@ function promExportCSV() {
   <div class="modal">
     <div class="modal-handle"></div>
     <h3 id="m-om-ciclo-title">Nuevo ciclo misionero</h3>
-    <div class="fg">
-      <label class="fl">Nombre del ciclo</label>
-      <input type="text" id="omc-nombre" class="fc" placeholder="Ej: 2025-2026, 2026-2027">
+    <div class="form-group">
+      <label class="form-label">Nombre del ciclo</label>
+      <input type="text" id="omc-nombre" class="form-control" placeholder="Ej: 2025-2026, 2026-2027">
     </div>
-    <div class="fg">
-      <label class="fl">Fecha de inicio</label>
-      <input type="date" id="omc-inicio" class="fc">
+    <div class="form-group">
+      <label class="form-label">Fecha de inicio</label>
+      <input type="date" id="omc-inicio" class="form-control">
     </div>
-    <div class="fg">
-      <label class="fl">Fecha de cierre <span>(opcional)</span></label>
-      <input type="date" id="omc-fin" class="fc">
+    <div class="form-group">
+      <label class="form-label">Fecha de cierre <span>(opcional)</span></label>
+      <input type="date" id="omc-fin" class="form-control">
     </div>
-    <div class="fg">
-      <label class="fl">Estado</label>
+    <div class="form-group">
+      <label class="form-label">Estado</label>
       <div class="tgrp" id="omc-estado">
         <button class="tbtn on" data-v="activo"   onclick="selMet(this,'omc-estado')">✅ Activo</button>
         <button class="tbtn"    data-v="cerrado"  onclick="selMet(this,'omc-estado')">🔒 Cerrado</button>
@@ -4869,14 +4870,14 @@ function promExportCSV() {
   <div class="modal">
     <div class="modal-handle"></div>
     <h3 id="m-om-ajuste-title">Ajustar monto</h3>
-    <div class="fg">
-      <label class="fl">Monto recibido ($)</label>
-      <input type="number" id="om-aj-monto" class="fc" inputmode="decimal" step="0.01" min="0"
+    <div class="form-group">
+      <label class="form-label">Monto recibido ($)</label>
+      <input type="number" id="om-aj-monto" class="form-control" inputmode="decimal" step="0.01" min="0"
         style="font-size:1.6rem;font-family:var(--mono);font-weight:800;text-align:right;">
     </div>
-    <div class="fg">
-      <label class="fl">Observaciones <span>(opcional)</span></label>
-      <input type="text" id="om-aj-obs" class="fc" placeholder="Nota…">
+    <div class="form-group">
+      <label class="form-label">Observaciones <span>(opcional)</span></label>
+      <input type="text" id="om-aj-obs" class="form-control" placeholder="Nota…">
     </div>
     <input type="hidden" id="om-aj-nombre">
     <input type="hidden" id="om-aj-promesa">
@@ -4892,23 +4893,23 @@ function promExportCSV() {
   <div class="modal">
     <div class="modal-handle"></div>
     <h3>Agregar aportante</h3>
-    <div class="fg">
-      <label class="fl">Nombre</label>
+    <div class="form-group">
+      <label class="form-label">Nombre</label>
       <div class="tgrp" style="margin-bottom:8px;">
         <button class="tbtn" onclick="document.getElementById('om-ex-nombre').value='Anónimo'">👤 Anónimo</button>
         <button class="tbtn" onclick="document.getElementById('om-ex-nombre').value='Visitante'">🙋 Visitante</button>
       </div>
-      <input type="text" id="om-ex-nombre" class="fc" placeholder="O escribe el nombre…">
+      <input type="text" id="om-ex-nombre" class="form-control" placeholder="O escribe el nombre…">
     </div>
-    <div class="fg">
-      <label class="fl">Monto ($)</label>
-      <input type="number" id="om-ex-monto" class="fc" placeholder="0.00"
+    <div class="form-group">
+      <label class="form-label">Monto ($)</label>
+      <input type="number" id="om-ex-monto" class="form-control" placeholder="0.00"
         inputmode="decimal" step="0.01" min="0.01"
         style="font-size:1.2rem;font-family:var(--mono);font-weight:700;text-align:right;">
     </div>
-    <div class="fg">
-      <label class="fl">Observaciones <span>(opcional)</span></label>
-      <input type="text" id="om-ex-obs" class="fc" placeholder="Nota…">
+    <div class="form-group">
+      <label class="form-label">Observaciones <span>(opcional)</span></label>
+      <input type="text" id="om-ex-obs" class="form-control" placeholder="Nota…">
     </div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('m-om-extra')">Cancelar</button>
