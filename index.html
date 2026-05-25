@@ -3554,10 +3554,21 @@ function matManualSet(cicloId, freq, nombre, iso, monto, promesa) {
   all[cicloId] = c;
   // Guardado local inmediato
   localStorage.setItem(K_MAT_MANUAL, JSON.stringify(all));
+
+  // Cola local de sincronización: si Firebase tarda, está offline o rechaza el primer intento,
+  // la celda queda pendiente y se reintenta después. Esto evita que lo capturado en iPad
+  // se quede solo en ese dispositivo.
+  const rec = val <= 0 ? null : (c[freq] && c[freq][nombre] && c[freq][nombre][iso] ? c[freq][nombre][iso] : null);
+  try {
+    const pk = [cicloId, freq, encodeURIComponent(nombre), iso].join('|');
+    const pend = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_pending_v1') || '{}');
+    pend[pk] = { cicloId, freq, nombre, iso, rec, updatedAt: new Date().toISOString() };
+    localStorage.setItem('ibfilm_matriz_manual_pending_v1', JSON.stringify(pend));
+  } catch(e) {}
+
   // Sincronización granular: sube/baja solo la celda editada para evitar sobrescribir
   // capturas hechas desde otro dispositivo. Si no existe la función nueva, usa el respaldo anterior.
   if (typeof window.fbSaveMatManualCell === 'function') {
-    const rec = val <= 0 ? null : (c[freq] && c[freq][nombre] && c[freq][nombre][iso] ? c[freq][nombre][iso] : null);
     window.fbSaveMatManualCell(cicloId, freq, nombre, iso, rec);
   } else {
     matManualSaveAll(all);
@@ -4458,7 +4469,8 @@ function cierreGuardar() {
       </div>
     </div>
 
-    <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="fbUploadAll()">☁️ Subir todos los datos a Firebase</button>
+    <button class="btn btn-gold btn-block" style="margin-top:14px;" onclick="sincronizarMatrizGeneralManual()">☁️ Sincronizar Matriz General</button>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" onclick="fbUploadAll()">☁️ Subir todos los datos a Firebase</button>
     <button class="btn btn-danger btn-block" style="margin-top:10px;" onclick="borrarTodo()">🗑️ Borrar todos los datos</button>
   </main>
 
@@ -4972,6 +4984,16 @@ let ppMiembro = null;  // miembro seleccionado en modal participante
 /* ── FIREBASE UPLOAD ALL ── */
 function fbUploadAll() {
   if (typeof window.fbUploadLocal === 'function') {
+    window.fbUploadLocal();
+  } else {
+    toast('Conectando con Firebase...', 'warn');
+  }
+}
+
+function sincronizarMatrizGeneralManual() {
+  if (typeof window.fbForceSyncMatManual === 'function') {
+    window.fbForceSyncMatManual();
+  } else if (typeof window.fbUploadLocal === 'function') {
     window.fbUploadLocal();
   } else {
     toast('Conectando con Firebase...', 'warn');
@@ -5571,9 +5593,23 @@ function promExportCSV() {
     };
 
     // Guardado granular por celda. Evita que la laptop sobrescriba capturas hechas en iPad.
+    function matPendingKey(cicloId, freq, nombre, iso) {
+      return [cicloId, freq, encodeURIComponent(nombre || ''), iso].join('|');
+    }
+    function removeMatPending(cicloId, freq, nombre, iso) {
+      try {
+        const key = matPendingKey(cicloId, freq, nombre, iso);
+        const pend = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_pending_v1') || '{}');
+        if (pend[key]) {
+          delete pend[key];
+          localStorage.setItem('ibfilm_matriz_manual_pending_v1', JSON.stringify(pend));
+        }
+      } catch(e) {}
+    }
+
     window.fbSaveMatManualCell = async function(cicloId, freq, nombre, iso, rec) {
       try {
-        if (!cicloId || !freq || !nombre || !iso) return;
+        if (!cicloId || !freq || !nombre || !iso) return false;
         const ref = doc(db, COL_MAT_MANUAL, cicloId);
         const snap = await getDoc(ref);
         const data = snap.exists() ? cloneObj((snap.data() || {}).data || {}) : { cicloId, semanal:{}, quincenal:{} };
@@ -5590,9 +5626,56 @@ function promExportCSV() {
         }
         data.updatedAt = new Date().toISOString();
         await setDoc(ref, { id:cicloId, cicloId:cicloId, data:data, updatedAt:data.updatedAt });
-        setSyncStatus(true, 'Sincronizado');
+        removeMatPending(cicloId, freq, nombre, iso);
+        setSyncStatus(true, 'Matriz sincronizada');
+        return true;
       } catch(e) {
-        setSyncStatus(false, 'Sin conexión — guardado local');
+        const msg = (e && (e.code || e.message)) ? String(e.code || e.message) : 'sin conexión';
+        setSyncStatus(false, 'Matriz no sincronizada: ' + msg);
+        if (typeof toast === 'function') toast('⚠️ La celda se guardó localmente, pero aún no subió a Firebase: ' + msg, 'warn');
+        return false;
+      }
+    };
+
+    window.fbFlushMatManualPending = async function() {
+      try {
+        const pend = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_pending_v1') || '{}');
+        const items = Object.values(pend);
+        if (!items.length) return true;
+        setSyncStatus(true, 'Sincronizando matriz pendiente...');
+        for (const item of items) {
+          await window.fbSaveMatManualCell(item.cicloId, item.freq, item.nombre, item.iso, item.rec);
+        }
+        const remaining = Object.keys(JSON.parse(localStorage.getItem('ibfilm_matriz_manual_pending_v1') || '{}')).length;
+        if (remaining === 0) {
+          setSyncStatus(true, 'Matriz sincronizada');
+          if (typeof toast === 'function') toast('✅ Matriz General sincronizada con Firebase');
+          return true;
+        }
+        setSyncStatus(false, 'Matriz con pendientes: ' + remaining);
+        return false;
+      } catch(e) {
+        const msg = (e && (e.code || e.message)) ? String(e.code || e.message) : 'sin conexión';
+        setSyncStatus(false, 'No se pudo sincronizar matriz: ' + msg);
+        if (typeof toast === 'function') toast('⚠️ No se pudo sincronizar la Matriz General: ' + msg, 'warn');
+        return false;
+      }
+    };
+
+    window.fbForceSyncMatManual = async function() {
+      try {
+        setSyncStatus(true, 'Sincronizando Matriz General...');
+        const all = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}');
+        for (const [cicloId, data] of Object.entries(all)) {
+          await window.fbSaveMatManual(cicloId, data);
+        }
+        await window.fbFlushMatManualPending();
+        setSyncStatus(true, 'Matriz General sincronizada');
+        if (typeof toast === 'function') toast('✅ Matriz General sincronizada con Firebase');
+      } catch(e) {
+        const msg = (e && (e.code || e.message)) ? String(e.code || e.message) : 'sin conexión';
+        setSyncStatus(false, 'Error matriz: ' + msg);
+        if (typeof toast === 'function') toast('⚠️ Error al sincronizar Matriz General: ' + msg, 'warn');
       }
     };
 
@@ -5790,6 +5873,11 @@ function promExportCSV() {
     document.addEventListener('DOMContentLoaded', () => {
       startMatManualRealtime();
       setTimeout(syncFromCloud, 1500);
+      setTimeout(() => { if (window.fbFlushMatManualPending) window.fbFlushMatManualPending(); }, 3500);
+      setInterval(() => { if (navigator.onLine && window.fbFlushMatManualPending) window.fbFlushMatManualPending(); }, 15000);
+    });
+    window.addEventListener('online', () => {
+      if (window.fbFlushMatManualPending) window.fbFlushMatManualPending();
     });
   </script>
 
