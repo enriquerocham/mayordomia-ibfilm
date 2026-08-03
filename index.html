@@ -1128,6 +1128,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .matriz-person-card.warn { border-left: 4px solid var(--amber); }
 .matriz-person-card.bad { border-left: 4px solid var(--red); }
 .matriz-person-card.gold { border-left: 4px solid var(--gold); }
+.matriz-person-card.neutral { border-left: 4px solid var(--navy-3); }
 .matriz-avatar {
   width: 42px;
   height: 42px;
@@ -1149,7 +1150,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .matriz-sub { color: var(--text-3); font-size: .72rem; margin-top: 2px; }
 .matriz-mini-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-top: 10px;
 }
@@ -1220,9 +1221,19 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   color: var(--gold-lt);
   z-index: 3;
 }
+.matriz-table th.mat-period.future { background: var(--navy-3); color: rgba(240,236,228,.55); }
+.matriz-table th.mat-period.current { background: var(--gold); color: var(--navy); }
+.matriz-table th.mat-period.past { background: var(--navy); color: var(--gold-lt); }
 .matriz-cell.ok { background: var(--green-lt); color: var(--green-dk); font-weight: 800; }
 .matriz-cell.warn { background: var(--amber-lt); color: #7c4a00; font-weight: 800; }
 .matriz-cell.bad { background: var(--red-lt); color: var(--red); }
+.matriz-cell.future { background: var(--cream); color: var(--text-3); }
+.matriz-cell.current {
+  background: var(--amber-lt);
+  color: var(--amber);
+  font-weight: 800;
+  box-shadow: inset 0 0 0 2px rgba(217,119,6,.18);
+}
 .matriz-total { font-weight: 800; color: var(--green); }
 .matriz-diff.pos { color: var(--green); font-weight: 800; }
 .matriz-diff.neg { color: var(--red); font-weight: 800; }
@@ -3747,56 +3758,105 @@ function matMinDate(movs) {
   });
   return min;
 }
+function matAddDays(d, days) {
+  const out = new Date(d);
+  out.setDate(out.getDate() + days);
+  return out;
+}
 function matRango(ciclo, movs) {
-  let inicio = matParseDate(ciclo?.inicio) || (matIsCicloHistorico(ciclo) ? matParseDate('2025-08-17') : null) || matMinDate(movs) || matToday();
-  let finConf = matParseDate(ciclo?.fin);
-  let hoyD = matToday();
-  let fin = finConf && finConf < hoyD ? finConf : hoyD;
-  if (inicio > fin) inicio = matMinDate(movs) || fin;
+  const inicio = matParseDate(ciclo?.inicio)
+    || (matIsCicloHistorico(ciclo) ? matParseDate('2025-08-17') : null)
+    || matMinDate(movs)
+    || matToday();
+  let fin = matParseDate(ciclo?.fin);
+
+  // La Matriz General siempre representa el ciclo completo. Si por alguna razón
+  // el ciclo no tiene una fecha final válida, se usa un año desde el inicio
+  // para evitar inventar una fecha basada en el día actual.
+  if (!fin || fin <= inicio) fin = matAddDays(inicio, 364);
   return { inicio, fin };
 }
 function matGenerarPeriodos(inicio, fin, freq) {
   const step = freq === 'quincenal' ? 14 : 7;
   const arr = [];
+  if (!inicio || !fin) return arr;
+
+  const hoyD = matToday();
+  const finInclusivo = new Date(fin);
+  const finExclusivo = matAddDays(finInclusivo, 1);
   const d = new Date(inicio);
   let guard = 0;
-  while (d <= fin && guard < 90) {
-    arr.push({ date: new Date(d), iso: matISO(d), label: matDM(d) });
+
+  // La fecha final del ciclo funciona como cierre del último periodo, no como
+  // el inicio de un periodo adicional. Así, un ciclo anual genera 52 semanas
+  // o 26 quincenas, según corresponda.
+  while (d < finInclusivo && guard < 90) {
+    const next = matAddDays(d, step);
+    const endExclusive = next >= finInclusivo ? finExclusivo : next;
+    const temporal = hoyD < d ? 'future' : (hoyD < endExclusive ? 'current' : 'past');
+    arr.push({
+      date: new Date(d),
+      endExclusive,
+      iso: matISO(d),
+      label: matDM(d),
+      temporal,
+      exigible: hoyD >= d,
+      vencido: hoyD >= endExclusive
+    });
     d.setDate(d.getDate() + step);
     guard++;
   }
-  if (!arr.length) arr.push({ date: new Date(inicio), iso: matISO(inicio), label: matDM(inicio) });
+
+  // Salvaguarda para ciclos atípicos de un solo día.
+  if (!arr.length) {
+    const endExclusive = matAddDays(finInclusivo, 1);
+    const temporal = hoyD < inicio ? 'future' : (hoyD < endExclusive ? 'current' : 'past');
+    arr.push({
+      date: new Date(inicio),
+      endExclusive,
+      iso: matISO(inicio),
+      label: matDM(inicio),
+      temporal,
+      exigible: hoyD >= inicio,
+      vencido: hoyD >= endExclusive
+    });
+  }
   return arr;
 }
 function matPeriodoIndex(fecha, periodos, freq) {
   const d = matParseDate(fecha);
   if (!d || !periodos.length) return -1;
-  const step = freq === 'quincenal' ? 14 : 7;
-  for (let i = 0; i < periodos.length; i++) {
-    const ini = periodos[i].date;
-    const fin = i + 1 < periodos.length ? periodos[i+1].date : new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + step, 12, 0, 0);
-    if (d >= ini && d < fin) return i;
-  }
-  return -1;
+  return periodos.findIndex(per => d >= per.date && d < per.endExclusive);
 }
-function matEstadoInfo(recibido, programado, actual) {
-  const diff = recibido - programado;
-  if (programado <= 0) return { key:'sin', label:'Sin compromiso', cls:'badge-grey', card:'warn' };
-  if (diff > 0.009) return { key:'adelantado', label:'Adelantado', cls:'badge-gold', card:'gold' };
-  if (diff >= -0.009) return { key:'corriente', label:'Al corriente', cls:'badge-green', card:'ok' };
+function matEstadoInfo(recibido, programadoFecha, programadoVencido, actual, metaCiclo, cortesIniciados) {
+  if (metaCiclo <= 0) return { key:'sin', label:'Sin compromiso', cls:'badge-grey', card:'neutral' };
+  if (cortesIniciados <= 0) return { key:'proximo', label:'Sin iniciar', cls:'badge-navy', card:'neutral' };
+
+  const diffFecha = recibido - programadoFecha;
+  const diffVencido = recibido - programadoVencido;
+  if (diffFecha > 0.009) return { key:'adelantado', label:'Adelantado', cls:'badge-gold', card:'gold' };
+  if (diffFecha >= -0.009) return { key:'corriente', label:'Al corriente', cls:'badge-green', card:'ok' };
+
+  // Si todavía cubre todos los periodos ya cerrados, no se considera moroso:
+  // únicamente tiene en curso el corte actual.
+  if (diffVencido >= -0.009) return { key:'corriente', label:'Corte actual', cls:'badge-navy', card:'ok' };
   if (actual > 0) return { key:'parcial', label:'Parcial', cls:'badge-gold', card:'warn' };
   return { key:'pendiente', label:'Pendiente', cls:'badge-red', card:'bad' };
 }
 function matBuildData() {
   const ciclo = matGetCiclo();
-  if (!ciclo) return { ciclo:null, compromisos:[], movs:[], periodos:[], rows:[] };
+  if (!ciclo) return { ciclo:null, compromisos:[], movs:[], periodos:[], periodosAFecha:[], periodosVencidos:[], rows:[] };
   ensureOMPromesasCiclo(ciclo.id);
   const data = loadOMPromesas(ciclo.id, true);
   const compromisos = (matFreq === 'semanal' ? data.semanal : data.quincenal).slice().sort((a,b) => (a.orden||0) - (b.orden||0));
   const movs = matMovsDelCiclo(ciclo);
   const { inicio, fin } = matRango(ciclo, movs);
   const periodos = matGenerarPeriodos(inicio, fin, matFreq);
+  const periodosAFecha = periodos.filter(p => p.exigible);
+  const periodosVencidos = periodos.filter(p => p.vencido);
+  const currentIndex = periodos.findIndex(p => p.temporal === 'current');
   const manualCiclo = matManualCiclo(ciclo.id);
+
   const rows = compromisos.map(p => {
     const porPeriodoReal = periodos.map(() => 0);
     const porPeriodoManual = periodos.map(() => 0);
@@ -3809,22 +3869,45 @@ function matBuildData() {
       const idx = matPeriodoIndex(m.fecha, periodos, matFreq);
       if (idx >= 0) porPeriodoReal[idx] += parseFloat(m.monto || 0) || 0;
     });
+
     const f = manualCiclo[matFreq] || {};
     const byName = f[p.nombre] || {};
     periodos.forEach((per, idx) => {
       const rec = byName[per.iso];
       if (rec) porPeriodoManual[idx] = parseFloat(rec.monto || 0) || 0;
     });
+
     const porPeriodo = porPeriodoReal.map((v, i) => v + porPeriodoManual[i]);
     const recibido = porPeriodo.reduce((s,n)=>s+n,0);
     const recibidoReal = porPeriodoReal.reduce((s,n)=>s+n,0);
     const recibidoManual = porPeriodoManual.reduce((s,n)=>s+n,0);
-    const programado = (parseFloat(p.promesa || 0) || 0) * periodos.length;
-    const actual = porPeriodo[porPeriodo.length - 1] || 0;
-    const estado = matEstadoInfo(recibido, programado, actual);
-    return { ...p, porPeriodo, porPeriodoReal, porPeriodoManual, recibido, recibidoReal, recibidoManual, programado, diferencia: recibido - programado, actual, estado };
+    const compromiso = parseFloat(p.promesa || 0) || 0;
+    const metaCiclo = compromiso * periodos.length;
+    const programadoFecha = compromiso * periodosAFecha.length;
+    const programadoVencido = compromiso * periodosVencidos.length;
+    const actual = currentIndex >= 0 ? (porPeriodo[currentIndex] || 0) : 0;
+    const estado = matEstadoInfo(recibido, programadoFecha, programadoVencido, actual, metaCiclo, periodosAFecha.length);
+
+    return {
+      ...p,
+      porPeriodo,
+      porPeriodoReal,
+      porPeriodoManual,
+      recibido,
+      recibidoReal,
+      recibidoManual,
+      metaCiclo,
+      programadoFecha,
+      programadoVencido,
+      programado: metaCiclo,
+      diferenciaFecha: recibido - programadoFecha,
+      diferencia: recibido - programadoFecha,
+      actual,
+      estado
+    };
   });
-  return { ciclo, compromisos, movs, periodos, rows, manualCiclo };
+
+  return { ciclo, compromisos, movs, inicio, fin, periodos, periodosAFecha, periodosVencidos, currentIndex, rows, manualCiclo };
 }
 function matFiltrarRows(rows) {
   if (matFiltro === 'corriente') return rows.filter(r => r.estado.key === 'corriente' || r.estado.key === 'adelantado');
@@ -3870,23 +3953,24 @@ function matRender() {
   if (histMini) histMini.textContent = canHist ? `${histCount} capturas históricas guardadas` : 'Disponible solo para el ciclo 2025-2026';
 
   const rows = matFiltrarRows(data.rows);
-  const totalProg = data.rows.reduce((s,r)=>s+r.programado,0);
+  const totalMeta = data.rows.reduce((s,r)=>s+r.metaCiclo,0);
+  const totalProgFecha = data.rows.reduce((s,r)=>s+r.programadoFecha,0);
   const totalRec = data.rows.reduce((s,r)=>s+r.recibido,0);
-  const diff = totalRec - totalProg;
-  const pct = totalProg > 0 ? Math.round((totalRec / totalProg) * 100) : 0;
+  const diffFecha = totalRec - totalProgFecha;
+  const pct = totalMeta > 0 ? Math.round((totalRec / totalMeta) * 100) : 0;
   const alCorriente = data.rows.filter(r => r.estado.key === 'corriente' || r.estado.key === 'adelantado').length;
   const pendientes = data.rows.filter(r => ['pendiente','parcial'].includes(r.estado.key)).length;
 
   const sum = document.getElementById('mat-summary');
   if (sum) sum.innerHTML = `
-    <div class="matriz-kpi"><div class="mk-label">Programado</div><div class="mk-value">${fmt(totalProg)}</div></div>
+    <div class="matriz-kpi"><div class="mk-label">Meta del ciclo</div><div class="mk-value">${fmt(totalMeta)}</div></div>
+    <div class="matriz-kpi"><div class="mk-label">Programado a la fecha</div><div class="mk-value">${fmt(totalProgFecha)}</div></div>
     <div class="matriz-kpi"><div class="mk-label">Recibido</div><div class="mk-value green">${fmt(totalRec)}</div></div>
-    <div class="matriz-kpi"><div class="mk-label">Diferencia</div><div class="mk-value ${diff < 0 ? 'red' : 'green'}">${fmt(diff)}</div></div>
-    <div class="matriz-kpi"><div class="mk-label">Avance</div><div class="mk-value gold">${pct}%</div></div>
+    <div class="matriz-kpi"><div class="mk-label">Diferencia a la fecha</div><div class="mk-value ${diffFecha < 0 ? 'red' : 'green'}">${fmt(diffFecha)}</div></div>
+    <div class="matriz-kpi"><div class="mk-label">Avance del ciclo</div><div class="mk-value gold">${pct}%</div></div>
     <div class="matriz-kpi"><div class="mk-label">Al corriente</div><div class="mk-value green">${alCorriente}</div></div>
     <div class="matriz-kpi"><div class="mk-label">Pendientes</div><div class="mk-value red">${pendientes}</div></div>
-    <div class="matriz-kpi"><div class="mk-label">Frecuencia</div><div class="mk-value">${matFreq === 'semanal' ? 'Semanal' : 'Quincenal'}</div></div>
-    <div class="matriz-kpi"><div class="mk-label">Cortes</div><div class="mk-value">${data.periodos.length}</div></div>
+    <div class="matriz-kpi"><div class="mk-label">Cortes ${matFreq === 'semanal' ? 'semanales' : 'quincenales'}</div><div class="mk-value">${data.periodosAFecha.length} de ${data.periodos.length}</div></div>
   `;
 
   const cards = document.getElementById('mat-cards');
@@ -3906,9 +3990,10 @@ function matRender() {
               <span class="badge ${r.estado.cls}">${r.estado.label}</span>
             </div>
             <div class="matriz-mini-grid">
-              <div class="matriz-mini"><div class="lbl">Programado</div><div class="val">${fmt(r.programado)}</div></div>
+              <div class="matriz-mini"><div class="lbl">Meta del ciclo</div><div class="val">${fmt(r.metaCiclo)}</div></div>
+              <div class="matriz-mini"><div class="lbl">Prog. a la fecha</div><div class="val">${fmt(r.programadoFecha)}</div></div>
               <div class="matriz-mini"><div class="lbl">Recibido</div><div class="val" style="color:var(--green);">${fmt(r.recibido)}</div></div>
-              <div class="matriz-mini"><div class="lbl">Diferencia</div><div class="val" style="color:${r.diferencia < 0 ? 'var(--red)' : 'var(--green)'};">${fmt(r.diferencia)}</div></div>
+              <div class="matriz-mini"><div class="lbl">Dif. a la fecha</div><div class="val" style="color:${r.diferenciaFecha < 0 ? 'var(--red)' : 'var(--green)'};">${fmt(r.diferenciaFecha)}</div></div>
             </div>
           </div>
         </div>
@@ -3922,28 +4007,49 @@ function matRenderTable(rows, periodos) {
   if (!wrap) return;
   if (!rows.length) { wrap.innerHTML = '<div class="matriz-empty">Sin datos para mostrar en la matriz.</div>'; return; }
   const editable = matModoHistorico && matCanEditHistorico();
-  const head = '<tr><th class="mat-name">Hermano/a</th><th>Comp.</th>' + periodos.map(p => `<th>${p.label}</th>`).join('') + '<th>Total</th><th>Dif.</th><th>Estado</th></tr>';
+  const headPeriodos = periodos.map(p => {
+    const temporalLabel = p.temporal === 'future' ? 'Futuro' : (p.temporal === 'current' ? 'Corte actual' : 'Cerrado');
+    return `<th class="mat-period ${p.temporal}" title="${temporalLabel}: ${fechaLabel(p.iso)}">${p.label}</th>`;
+  }).join('');
+  const head = '<tr><th class="mat-name">Hermano/a</th><th>Comp.</th>' + headPeriodos + '<th>Total recibido</th><th>Meta ciclo</th><th>Prog. fecha</th><th>Dif. fecha</th><th>Estado</th></tr>';
+
   const body = rows.map(r => {
     const cells = r.porPeriodo.map((v, idx) => {
+      const per = periodos[idx];
       const real = (r.porPeriodoReal && r.porPeriodoReal[idx]) || 0;
       const manual = (r.porPeriodoManual && r.porPeriodoManual[idx]) || 0;
-      let cls = 'bad';
+      let cls;
       if (manual > 0 && real > 0) cls = 'real-manual';
       else if (manual > 0) cls = 'manual';
       else if (v > 0 && Math.abs(v - r.promesa) < 0.01) cls = 'ok';
       else if (v > 0) cls = 'warn';
-      const attrs = editable
-        ? ` hist-editable" data-ciclo="${omHtml(matCicloId || '')}" data-freq="${omHtml(matFreq)}" data-nombre="${encodeURIComponent(r.nombre)}" data-fecha="${omHtml(periodos[idx].iso)}" data-promesa="${omHtml(String(r.promesa || 0))}" data-real="${omHtml(String(real || 0))}" data-manual="${omHtml(String(manual || 0))}" onclick="matManualCellClick(this)" ondblclick="matManualCellDblClick(this)" oncontextmenu="return matManualCellContext(event,this)" title="Clic: colocar compromiso. Doble clic: editar cantidad. Clic derecho: editar."`
-        : '"';
-      const tip = manual > 0 && real > 0 ? ` title="Incluye real ${fmt(real)} + histórico ${fmt(manual)}"` : '';
-      return `<td class="matriz-cell ${v > 0 ? cls : 'bad'}${editable ? attrs : '"'}${!editable ? tip : ''}>${v > 0 ? fmtN(v) : '—'}</td>`;
+      else if (per.temporal === 'future') cls = 'future';
+      else if (per.temporal === 'current') cls = 'current';
+      else cls = 'bad';
+
+      const classes = ['matriz-cell', cls];
+      if (editable) classes.push('hist-editable');
+      let attrs = `class="${classes.join(' ')}"`;
+      if (editable) {
+        attrs += ` data-ciclo="${omHtml(matCicloId || '')}" data-freq="${omHtml(matFreq)}" data-nombre="${encodeURIComponent(r.nombre)}" data-fecha="${omHtml(per.iso)}" data-promesa="${omHtml(String(r.promesa || 0))}" data-real="${omHtml(String(real || 0))}" data-manual="${omHtml(String(manual || 0))}" onclick="matManualCellClick(this)" ondblclick="matManualCellDblClick(this)" oncontextmenu="return matManualCellContext(event,this)" title="Clic: colocar compromiso. Doble clic: editar cantidad. Clic derecho: editar."`;
+      } else if (manual > 0 && real > 0) {
+        attrs += ` title="Incluye real ${fmt(real)} + histórico ${fmt(manual)}"`;
+      } else if (per.temporal === 'future') {
+        attrs += ' title="Periodo futuro: todavía no afecta el cumplimiento"';
+      } else if (per.temporal === 'current') {
+        attrs += ' title="Corte actual: todavía no se considera vencido"';
+      }
+      return `<td ${attrs}>${v > 0 ? fmtN(v) : '—'}</td>`;
     }).join('');
+
     return `<tr>
       <td class="mat-name">${omHtml(r.nombre)}</td>
       <td>${fmtN(r.promesa)}</td>
       ${cells}
       <td class="matriz-total">${fmtN(r.recibido)}</td>
-      <td class="matriz-diff ${r.diferencia < 0 ? 'neg' : 'pos'}">${fmtN(r.diferencia)}</td>
+      <td>${fmtN(r.metaCiclo)}</td>
+      <td>${fmtN(r.programadoFecha)}</td>
+      <td class="matriz-diff ${r.diferenciaFecha < 0 ? 'neg' : 'pos'}">${fmtN(r.diferenciaFecha)}</td>
       <td><span class="badge ${r.estado.cls}">${r.estado.label}</span></td>
     </tr>`;
   }).join('');
@@ -3953,10 +4059,10 @@ function matExportCSV() {
   const data = matUltimaData || matBuildData();
   if (!data.ciclo || !data.rows.length) { toast('No hay datos para exportar.', 'warn'); return; }
   const rows = matFiltrarRows(data.rows);
-  const header = ['Hermano/a','Compromiso'].concat(data.periodos.map(p => p.label), ['Total recibido','Programado','Diferencia','Estado']);
+  const header = ['Hermano/a','Compromiso'].concat(data.periodos.map(p => p.label), ['Total recibido','Meta del ciclo','Programado a la fecha','Diferencia a la fecha','Estado']);
   const lines = [header];
   rows.forEach(r => {
-    lines.push([r.nombre, r.promesa].concat(r.porPeriodo, [r.recibido, r.programado, r.diferencia, r.estado.label]));
+    lines.push([r.nombre, r.promesa].concat(r.porPeriodo, [r.recibido, r.metaCiclo, r.programadoFecha, r.diferenciaFecha, r.estado.label]));
   });
   const csv = lines.map(row => row.map(v => '"' + String(v ?? '').replace(/"/g,'""') + '"').join(',')).join('\n');
   const fname = 'matriz_general_' + (data.ciclo.nombre || 'ciclo').replace(/[^a-z0-9]+/gi,'_').toLowerCase() + '_' + matFreq + '_' + hoy() + '.csv';
