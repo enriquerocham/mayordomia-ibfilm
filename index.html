@@ -1050,7 +1050,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .om-prom-row {
   display: grid;
-  grid-template-columns: 1fr 112px 36px;
+  grid-template-columns: 28px 1fr 112px 36px;
   gap: 8px;
   align-items: center;
   padding: 10px;
@@ -1062,6 +1062,73 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .om-prom-row input {
   padding: 9px 10px;
   font-size: .88rem;
+}
+
+/* Reordenamiento de promesas por arrastre */
+.om-sortable-list { position: relative; }
+.om-drag-handle {
+  width: 28px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.om-drag-handle::before {
+  content: '';
+  width: 14px;
+  height: 22px;
+  background-image: radial-gradient(circle, currentColor 1.7px, transparent 1.9px);
+  background-size: 7px 7px;
+  background-position: 0 0;
+}
+.om-drag-handle:hover,
+.om-drag-handle:focus-visible,
+.om-drag-handle.active {
+  color: var(--gold-dk);
+  background: rgba(201,168,76,.13);
+  outline: none;
+}
+.om-drag-handle:active,
+.om-drag-handle.active { cursor: grabbing; }
+.om-sort-placeholder {
+  min-height: 52px;
+  margin-bottom: 8px;
+  border: 2px dashed var(--gold);
+  border-radius: var(--r-lg);
+  background: rgba(201,168,76,.10);
+}
+.om-sortable-item.om-dragging {
+  position: fixed !important;
+  z-index: 9999 !important;
+  margin: 0 !important;
+  opacity: .97;
+  transform: scale(1.015) rotate(.15deg) !important;
+  box-shadow: 0 16px 38px rgba(15,28,46,.28) !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+body.om-sorting {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grabbing;
+}
+body.om-sorting .col-item:active { transform: none; }
+@media (max-width: 420px) {
+  .om-prom-row {
+    grid-template-columns: 26px minmax(0,1fr) 92px 34px;
+    gap: 6px;
+    padding: 8px;
+  }
+  .om-drag-handle { width: 26px; }
 }
 .om-prom-empty {
   text-align: center;
@@ -3086,7 +3153,7 @@ function omNormalizarPromesas(data) {
     estatus: m.estatus || 'Activo',
     orden: Number.isFinite(+m.orden) ? +m.orden : i + 1,
     obs: m.obs || ''
-  })).filter(m => m.nombre);
+  })).filter(m => m.nombre).sort((a,b) => (a.orden || 0) - (b.orden || 0));
   return {
     semanal: normArr(base.semanal, 'semanal'),
     quincenal: normArr(base.quincenal, 'quincenal'),
@@ -3149,6 +3216,160 @@ function omPromesasPlantillaNuevoCiclo() {
 }
 function colDraftKey() {
   return K_COL + '_' + (window.omCicloActivo || 'legacy');
+}
+
+
+/* ── Reordenar promesas mediante el control de arrastre ── */
+let omSortState = null;
+
+function omSortIds(list) {
+  return Array.from(list.querySelectorAll('.om-sortable-item[data-sort-id]'))
+    .map(el => el.dataset.sortId)
+    .filter(Boolean);
+}
+
+function omSortCleanup() {
+  document.removeEventListener('pointermove', omSortMove);
+  document.removeEventListener('pointerup', omSortEnd);
+  document.removeEventListener('pointercancel', omSortEnd);
+  document.body.classList.remove('om-sorting');
+}
+
+function omSortStart(ev, handle) {
+  if (!window.omCicloActivo || omSortState) return;
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+
+  const item = handle.closest('.om-sortable-item');
+  const list = item && item.closest('.om-sortable-list');
+  if (!item || !list) return;
+
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const rect = item.getBoundingClientRect();
+  const placeholder = document.createElement('div');
+  placeholder.className = 'om-sort-placeholder';
+  placeholder.style.height = rect.height + 'px';
+  list.insertBefore(placeholder, item.nextSibling);
+
+  const originalStyle = item.getAttribute('style');
+  const originalIds = omSortIds(list);
+  const freq = list.dataset.omFreq === 'quincenal' ? 'quincenal' : 'semanal';
+
+  document.body.appendChild(item);
+  item.classList.add('om-dragging');
+  handle.classList.add('active');
+  item.style.width = rect.width + 'px';
+  item.style.height = rect.height + 'px';
+  item.style.left = rect.left + 'px';
+  item.style.top = rect.top + 'px';
+
+  omSortState = {
+    item,
+    list,
+    handle,
+    placeholder,
+    freq,
+    originalStyle,
+    originalIds,
+    offsetY: ev.clientY - rect.top
+  };
+
+  document.body.classList.add('om-sorting');
+  try { handle.setPointerCapture(ev.pointerId); } catch(e) {}
+  document.addEventListener('pointermove', omSortMove, { passive:false });
+  document.addEventListener('pointerup', omSortEnd);
+  document.addEventListener('pointercancel', omSortEnd);
+  if (navigator.vibrate) navigator.vibrate(18);
+}
+
+function omSortMove(ev) {
+  const st = omSortState;
+  if (!st) return;
+  ev.preventDefault();
+
+  st.item.style.top = (ev.clientY - st.offsetY) + 'px';
+
+  const edge = 76;
+  let scrollDelta = 0;
+  if (ev.clientY < edge) scrollDelta = -Math.ceil((edge - ev.clientY) / 5);
+  else if (ev.clientY > window.innerHeight - edge) scrollDelta = Math.ceil((ev.clientY - (window.innerHeight - edge)) / 5);
+  if (scrollDelta) window.scrollBy(0, Math.max(-18, Math.min(18, scrollDelta)));
+
+  const siblings = Array.from(st.list.querySelectorAll('.om-sortable-item'));
+  let inserted = false;
+  for (const sibling of siblings) {
+    const r = sibling.getBoundingClientRect();
+    if (ev.clientY < r.top + r.height / 2) {
+      st.list.insertBefore(st.placeholder, sibling);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) st.list.appendChild(st.placeholder);
+}
+
+function omSortEnd(ev) {
+  const st = omSortState;
+  if (!st) return;
+  if (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+
+  st.list.insertBefore(st.item, st.placeholder);
+  st.placeholder.remove();
+  st.item.classList.remove('om-dragging');
+  st.handle.classList.remove('active');
+  if (st.originalStyle === null) st.item.removeAttribute('style');
+  else st.item.setAttribute('style', st.originalStyle);
+
+  const newIds = omSortIds(st.list);
+  const changed = newIds.join('|') !== st.originalIds.join('|');
+  omSortState = null;
+  omSortCleanup();
+
+  if (changed) omPromGuardarOrden(st.freq, newIds);
+}
+
+function omPromGuardarOrden(freq, orderedIds) {
+  const cicloId = window.omCicloActivo;
+  if (!cicloId) return;
+
+  const key = freq === 'quincenal' ? 'quincenal' : 'semanal';
+  const data = omClonarPromesasData(loadOMPromesas(cicloId, true));
+  const actuales = Array.isArray(data[key]) ? data[key] : [];
+  const porId = new Map(actuales.map(p => [p.id, p]));
+  const ordenadas = [];
+
+  orderedIds.forEach(id => {
+    const item = porId.get(id);
+    if (item) {
+      ordenadas.push(item);
+      porId.delete(id);
+    }
+  });
+  actuales.forEach(item => {
+    if (porId.has(item.id)) {
+      ordenadas.push(item);
+      porId.delete(item.id);
+    }
+  });
+  ordenadas.forEach((item, index) => { item.orden = index + 1; });
+  data[key] = ordenadas;
+
+  saveOMPromesas(cicloId, data);
+
+  const colectaActiva = document.getElementById('pg-colecta')?.classList.contains('active');
+  if (colectaActiva && typeof renderColecta === 'function') renderColecta();
+
+  const modalProm = document.getElementById('m-om-promesas');
+  if (modalProm?.classList.contains('open') && typeof omRenderPromesasEditor === 'function') omRenderPromesasEditor();
+
+  const matrizActiva = document.getElementById('pg-matriz')?.classList.contains('active');
+  if (matrizActiva && typeof matRender === 'function') matRender();
+
+  toast('↕️ Orden actualizado');
 }
 
 
@@ -3229,22 +3450,22 @@ function renderColecta() {
   const elSem  = document.getElementById('col-lista-semanal');
   const elQuin = document.getElementById('col-lista-quincenal');
 
-  const renderLista = (arr, labelFrecuencia) => {
+  const renderLista = (arr, labelFrecuencia, freq) => {
     const head = `
       <div class="col-section-head">
         <h3>📋 ${labelFrecuencia}</h3>
         <span>${arr.filter(m=>{const e=colEstado[m.nombre];return e&&(e.estado==='pagado'||e.estado==='ajustado');}).length} / ${arr.length} pagaron</span>
       </div>`;
-    const items = arr.map(m => renderColItem(m)).join('');
-    return head + items;
+    const items = arr.map(m => renderColItem(m, freq)).join('');
+    return head + `<div class="om-sortable-list" data-om-freq="${freq}">${items}</div>`;
   };
 
   if (colFreq === 'semanal') {
-    elSem.innerHTML  = renderLista(promesasData.semanal, 'Promesa semanal');
+    elSem.innerHTML  = renderLista(promesasData.semanal, 'Promesa semanal', 'semanal');
     elQuin.innerHTML = '';
   } else {
     elSem.innerHTML  = '';
-    elQuin.innerHTML = renderLista(promesasData.quincenal, 'Promesa quincenal');
+    elQuin.innerHTML = renderLista(promesasData.quincenal, 'Promesa quincenal', 'quincenal');
   }
 
   // Extras
@@ -3255,7 +3476,7 @@ function renderColecta() {
 }
 
 /* ── Render de un item de hermano ── */
-function renderColItem(m) {
+function renderColItem(m, freq) {
   const est   = colEstado[m.nombre] || { estado:'pendiente', monto: m.promesa };
   const color = avatarColor(m.nombre);
   const ini   = initiales(m.nombre);
@@ -3266,9 +3487,15 @@ function renderColItem(m) {
   const obs         = est.obs ? `<div style="font-size:.68rem;color:#7c5300;margin-top:2px;">${est.obs}</div>` : '';
 
   return `
-    <div class="col-item ${estadoClass}" id="colitem-${CSS.escape(m.nombre)}"
+    <div class="col-item ${estadoClass} om-sortable-item" data-sort-id="${omHtml(m.id)}" id="colitem-${CSS.escape(m.nombre)}"
          onclick="colTocarItem('${m.nombre.replace(/'/g,"\\'")}', ${m.promesa})"
          oncontextmenu="colLongPress(event,'${m.nombre.replace(/'/g,"\\'")}',${m.promesa})">
+      <button type="button" class="om-drag-handle"
+        aria-label="Arrastrar para reorganizar a ${omHtml(m.nombre)}"
+        title="Arrastrar para reorganizar"
+        onpointerdown="omSortStart(event,this)"
+        onclick="event.preventDefault();event.stopPropagation();"
+        oncontextmenu="event.preventDefault();event.stopPropagation();"></button>
       <div class="col-avatar" style="background:${color};">${ini}</div>
       <div class="col-body">
         <div class="col-name">${m.nombre}</div>
@@ -6320,13 +6547,14 @@ function omRenderPromesasEditor() {
     el.innerHTML = '<div class="om-prom-empty">No hay promesas en esta frecuencia. Agrega el primer hermano.</div>';
     return;
   }
-  el.innerHTML = arr.map(function(p) {
-    return '<div class="om-prom-row">' +
+  el.innerHTML = '<div class="om-sortable-list" data-om-freq="' + omPromFreq + '">' + arr.map(function(p) {
+    return '<div class="om-prom-row om-sortable-item" data-sort-id="' + omHtml(p.id) + '">' +
+      '<button type="button" class="om-drag-handle" aria-label="Arrastrar para reorganizar a ' + omHtml(p.nombre) + '" title="Arrastrar para reorganizar" onpointerdown="omSortStart(event,this)" onclick="event.preventDefault();event.stopPropagation();" oncontextmenu="event.preventDefault();event.stopPropagation();"></button>' +
       '<input class="form-control" value="' + omHtml(p.nombre) + '" onchange="omPromActualizar(\'' + omJs(p.id) + '\',\'nombre\',this.value)">' +
       '<input class="form-control" type="number" inputmode="decimal" step="0.01" min="0" value="' + Number(p.promesa || 0) + '" onchange="omPromActualizar(\'' + omJs(p.id) + '\',\'promesa\',this.value)">' +
       '<button class="btn btn-ghost btn-xs" style="color:var(--red);padding:8px 0;" onclick="omPromEliminar(\'' + omJs(p.id) + '\')">×</button>' +
     '</div>';
-  }).join('');
+  }).join('') + '</div>';
 }
 
 function omPromGuardarData(data) {
