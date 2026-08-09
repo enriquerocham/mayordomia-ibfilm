@@ -1692,7 +1692,7 @@ function setText(id, v) { const e = document.getElementById(id); if (e) e.textCo
 
 function catColor(cat) {
   const map = {
-    'Diezmo':'#1e40af','Ofrenda general':'#1d7a4e','Misiones':'#7c3aed',
+    'Diezmo':'#1e40af','Ofrenda Ordinaria':'#1d7a4e','Misiones':'#7c3aed',
     'Ofrenda especial':'#c2410c','Construcción':'#fb923c','Escuela dominical':'#0e7490',
     'Jóvenes':'#be185d','Niños':'#a3e635','Ayuda social':'#38bdf8','Donativo':'#a16207','Otros':'#6b7e94'
   };
@@ -2386,7 +2386,7 @@ function openEditMov(id) {
   editMovId = id;
   const isIng = m.tipo === 'Ingreso';
   const cats  = isIng
-    ? ['Diezmo','Ofrenda general','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros']
+    ? ['Diezmo','Ofrenda Ordinaria','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros']
     : ['Servicios','Renta','Mantenimiento','Compras','Ministerio de jóvenes','Ministerio infantil','Misiones','Apoyo pastoral','Ayuda social','Papelería','Transporte','Construcción','Limpieza','Equipo de sonido','Otros'];
   const mets = isIng ? ['Efectivo','Transferencia','Depósito','Otro'] : ['Efectivo','Transferencia','Tarjeta','Depósito','Otro'];
   document.getElementById('modal-mov-form').innerHTML = `
@@ -2470,7 +2470,7 @@ function genReporteDiario() {
 
   const tIng = ing.reduce((s,m)=>s+m.monto,0);
   const tEgr = egr.reduce((s,m)=>s+m.monto,0);
-  const cats  = ['Diezmo','Ofrenda general','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros'];
+  const cats  = ['Diezmo','Ofrenda Ordinaria','Misiones','Ofrenda especial','Construcción','Escuela dominical','Jóvenes','Niños','Ayuda social','Donativo','Otros'];
   const mets  = ['Efectivo','Transferencia','Depósito','Otro'];
   const catT  = {};  cats.forEach(c=>{ catT[c]=ing.filter(m=>m.categoria===c).reduce((s,m)=>s+m.monto,0); });
   const metT  = {};  mets.forEach(c=>{ metT[c]=ing.filter(m=>m.metodo===c).reduce((s,m)=>s+m.monto,0); });
@@ -2882,8 +2882,8 @@ function cargarDatosPrueba() {
   const h = hoy();
   const prueba = [
     { id:uid(), tipo:'Ingreso', fecha:h, hora:'09:30', concepto:'Diezmo', categoria:'Diezmo', monto:500, metodo:'Efectivo', aportante:m1.nombre, responsable:m1.nombre, miembroId:m1.id, observaciones:'' },
-    { id:uid(), tipo:'Ingreso', fecha:h, hora:'09:35', concepto:'Ofrenda general', categoria:'Ofrenda general', monto:200, metodo:'Efectivo', aportante:m2.nombre, responsable:m2.nombre, miembroId:m2.id, observaciones:'' },
-    { id:uid(), tipo:'Ingreso', fecha:h, hora:'09:40', concepto:'Ofrenda general', categoria:'Ofrenda general', monto:50, metodo:'Efectivo', aportante:'Anónimo', responsable:'Anónimo', miembroId:null, observaciones:'' },
+    { id:uid(), tipo:'Ingreso', fecha:h, hora:'09:35', concepto:'Ofrenda Ordinaria', categoria:'Ofrenda Ordinaria', monto:200, metodo:'Efectivo', aportante:m2.nombre, responsable:m2.nombre, miembroId:m2.id, observaciones:'' },
+    { id:uid(), tipo:'Ingreso', fecha:h, hora:'09:40', concepto:'Ofrenda Ordinaria', categoria:'Ofrenda Ordinaria', monto:50, metodo:'Efectivo', aportante:'Anónimo', responsable:'Anónimo', miembroId:null, observaciones:'' },
     { id:uid(), tipo:'Ingreso', fecha:h, hora:'09:45', concepto:'Misiones', categoria:'Misiones', monto:100, metodo:'Efectivo', aportante:m3.nombre, responsable:m3.nombre, miembroId:m3.id, observaciones:'Ofrenda de bienvenida' },
     { id:uid(), tipo:'Ingreso', fecha:h, hora:'10:00', concepto:'Construcción', categoria:'Construcción', monto:1000, metodo:'Transferencia', aportante:m1.nombre, responsable:m1.nombre, miembroId:m1.id, observaciones:'Transferencia a cuenta de la iglesia' },
     { id:uid(), tipo:'Egreso', fecha:h, hora:'11:00', concepto:'Pago de luz', categoria:'Servicios', monto:350, metodo:'Efectivo', responsable:'Hermano Pérez', aportante:'', observaciones:'CFE mes actual' },
@@ -4304,7 +4304,7 @@ function matExportCSV() {
 
 const CIERRE_CATEGORIAS = [
   { icon:'💰', label:'Diezmos',           key:'diezmos'   },
-  { icon:'🤲', label:'Ofrenda general',   key:'ofrenda'   },
+  { icon:'🤲', label:'Ofrenda Ordinaria',   key:'ofrenda'   },
   { icon:'⭐', label:'Ofrenda especial',  key:'especial'  },
   { icon:'🏗️', label:'Construcción',      key:'construc'  },
   { icon:'📖', label:'Escuela dominical', key:'escuela'   },
@@ -4517,7 +4517,7 @@ function cierreGuardar() {
       <label class="form-label">Tipo de aportación</label>
       <div class="cat-grid" id="rr-cat-grid">
         <button class="cat-btn" data-cat="Diezmo"            onclick="rrSelCat(this)"><span class="ci">💰</span><span class="cl">Diezmo</span></button>
-        <button class="cat-btn" data-cat="Ofrenda general"   onclick="rrSelCat(this)"><span class="ci">🤲</span><span class="cl">Ofrenda Gral.</span></button>
+        <button class="cat-btn" data-cat="Ofrenda Ordinaria"   onclick="rrSelCat(this)"><span class="ci">🤲</span><span class="cl">Ofrenda Gral.</span></button>
         <button class="cat-btn" data-cat="Misiones"          onclick="rrSelCat(this)"><span class="ci">🌍</span><span class="cl">Misiones</span></button>
         <button class="cat-btn" data-cat="Ofrenda especial"  onclick="rrSelCat(this)"><span class="ci">⭐</span><span class="cl">Of. Especial</span></button>
         <button class="cat-btn" data-cat="Construcción"      onclick="rrSelCat(this)"><span class="ci">🏗️</span><span class="cl">Construcción</span></button>
