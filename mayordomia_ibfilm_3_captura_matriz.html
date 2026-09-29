@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mayordomía IBFILM 3.0 · Ofrenda Misionera</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --bg:#f6f8fb;--surface:#fff;--surface-2:#f9fbfd;--text:#101828;--muted:#667085;
+  --line:#e6eaf0;--nav:#0b1b31;--nav2:#112846;--gold:#eca814;--gold2:#f7c451;
+  --green:#16a36a;--green-bg:#eaf8f1;--amber:#c47a09;--amber-bg:#fff4df;
+  --red:#c33d45;--red-bg:#fff0f1;--blue:#3d67a4;--blue-bg:#edf4ff;
+  --shadow:0 12px 32px rgba(16,24,40,.055);--radius:20px
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.app{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:100vh}
+.sidebar{height:100vh;position:sticky;top:0;background:linear-gradient(180deg,var(--nav),#091525);color:#fff;padding:24px 16px}
+.brand{display:flex;align-items:center;gap:12px;padding:3px 7px 24px}
+.logo{width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,var(--gold2),#c98c15);display:grid;place-items:center;color:#0b1b31}
+.logo svg{width:25px;height:25px}
+.brand-name{font-weight:800;font-size:15px}.brand-sub{font-size:11px;color:#adbacb;margin-top:3px}
+.menu{display:flex;flex-direction:column;gap:4px}
+.menu button{border:0;background:transparent;color:#b8c3d3;padding:12px 13px;border-radius:13px;display:flex;gap:12px;align-items:center;text-align:left;font-weight:600;font-size:13px}
+.menu button:hover{background:rgba(255,255,255,.055);color:#fff}
+.menu button.active{color:#fff;background:linear-gradient(90deg,rgba(236,168,20,.35),rgba(236,168,20,.13));box-shadow:inset 3px 0 0 var(--gold2)}
+.menu svg{width:19px;height:19px}
+.side-footer{position:absolute;left:16px;right:16px;bottom:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:13px}
+.sync-side{display:flex;gap:8px;align-items:center;color:#9ce1bf;font-size:11px;font-weight:600}.sync-side .dot{width:7px;height:7px;border-radius:50%;background:#41c784}
+.sync-detail{color:#92a2b9;font-size:10px;margin-top:7px;line-height:1.4}
+.main{padding:20px 24px 40px;min-width:0}
+.topbar{height:70px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:16px;justify-content:space-between;padding:11px 16px}
+.search{flex:1;max-width:720px;display:flex;gap:10px;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:13px;padding:10px 13px}
+.search svg{width:18px;color:#8793a6}.search input{width:100%;border:0;background:transparent;outline:none;color:#344054}
+.profile{display:flex;align-items:center;gap:10px}.avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#10233f;color:#fff;font-size:12px;font-weight:800}
+.profile strong{display:block;font-size:13px}.profile small{font-size:11px;color:var(--muted)}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:22px 4px 6px}
+.pagehead h1{font-size:34px;letter-spacing:-.035em;margin:0}.pagehead p{margin:5px 0 0;color:var(--muted);font-size:14px}
+.live{display:flex;align-items:center;gap:7px;background:var(--green-bg);color:#14744e;padding:8px 12px;border-radius:999px;font-size:11px;font-weight:700}
+.live .dot{width:8px;height:8px;border-radius:50%;background:#22b573}
+.tabs{display:flex;gap:2px;overflow:auto;border-bottom:1px solid var(--line);margin:10px 0 18px}
+.tab{white-space:nowrap;border:0;background:transparent;color:#526177;padding:13px 15px;font-weight:700;font-size:13px;border-bottom:3px solid transparent}
+.tab.active{color:#c47b06;border-bottom-color:var(--gold)}
+.pane{display:none}.pane.active{display:block}
+.grid-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.kpi{display:flex;gap:13px;align-items:center;padding:18px}.kicon{width:47px;height:47px;border-radius:15px;background:#fff5e5;color:#d68d09;display:grid;place-items:center;flex:0 0 auto}
+.kicon svg{width:23px}.klabel{font-size:11px;color:var(--muted);font-weight:700}.kvalue{font-size:20px;font-weight:800;margin-top:3px;letter-spacing:-.02em}.ksub{font-size:10px;color:#98a2b3;margin-top:3px}
+.two{display:grid;grid-template-columns:1.45fr .75fr;gap:15px;margin-top:15px}
+.pad{padding:18px}.title{font-size:16px;font-weight:800}.subtitle{font-size:12px;color:var(--muted);margin-top:3px}
+.empty{padding:42px 20px;text-align:center;color:var(--muted)}
+.empty svg{width:42px;height:42px;color:#a7b2c2;margin-bottom:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:10px 13px;font-weight:750;font-size:12px}.btn-primary{background:linear-gradient(135deg,var(--gold2),#df9b14);color:#172137}.btn-dark{background:#10233f;color:#fff}.btn-soft{background:#f2f5f9;color:#394961;border:1px solid var(--line)}.btn-danger{background:var(--red-bg);color:var(--red)}
+.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+.toolbar h3{margin:0;font-size:17px}.toolbar .left p{margin:4px 0 0;color:var(--muted);font-size:11px}
+.tablebox{overflow:auto;border:1px solid var(--line);border-radius:15px}
+table{width:100%;border-collapse:collapse;min-width:760px;background:#fff}
+th{text-align:left;color:#667085;font-size:10px;text-transform:uppercase;letter-spacing:.055em;background:#fafbfd;padding:11px 12px}
+td{border-top:1px solid #edf0f4;padding:12px;font-size:12px;vertical-align:middle}
+tbody tr:hover{background:#fbfcfe}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;font-size:10px;font-weight:750}
+.chip:before{content:"";width:7px;height:7px;border-radius:50%}
+.chip.green{background:var(--green-bg);color:#137b50}.chip.green:before{background:#22b573}.chip.gray{background:#f1f3f6;color:#667085}.chip.gray:before{background:#98a2b3}.chip.amber{background:var(--amber-bg);color:#a86a08}.chip.amber:before{background:#e8a326}
+.cycle-list{display:grid;gap:10px}.cycle{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:15px;background:#fff}
+.cycle.selected{border-color:#efc56d;box-shadow:0 0 0 3px rgba(236,168,20,.08)}.cycle h4{margin:8px 0 3px;font-size:18px}.cycle p{margin:0;color:var(--muted);font-size:11px}.cycle-actions{display:flex;gap:7px;align-items:center}
+.iconbtn{width:35px;height:35px;border:1px solid var(--line);background:#fff;border-radius:10px;color:#526177;display:grid;place-items:center}.iconbtn.danger{color:var(--red);background:var(--red-bg)}
+.prom-filter{display:flex;gap:7px}.seg{border:1px solid var(--line);background:#fff;color:#526177;border-radius:10px;padding:8px 11px;font-size:11px;font-weight:750}.seg.active{background:#10233f;color:#fff;border-color:#10233f}
+.money{font-variant-numeric:tabular-nums;font-weight:750}
+.muted{color:var(--muted)}
+.summary-list{display:grid;gap:10px;margin-top:13px}.summary-row{display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line);font-size:12px}.summary-row:last-child{border-bottom:0}.summary-row b{font-size:13px}
+.notice{background:var(--blue-bg);color:#496789;padding:12px 13px;border-radius:13px;font-size:11px;line-height:1.5}
+.placeholder{padding:25px}.placeholder .big{font-size:17px;font-weight:800}.placeholder p{color:var(--muted);font-size:12px;line-height:1.55}
+.modalbg{display:none;position:fixed;inset:0;background:rgba(6,14,26,.55);backdrop-filter:blur(5px);z-index:50;align-items:center;justify-content:center;padding:18px}.modalbg.open{display:flex}
+.modal{width:min(570px,100%);background:#fff;border-radius:22px;padding:21px;box-shadow:0 30px 90px rgba(0,0,0,.2)}
+.modal h3{margin:0;font-size:19px}.modal p{font-size:11px;color:var(--muted);line-height:1.5}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.field{margin-top:11px}.field.full{grid-column:1/-1}.field label{display:block;font-size:10px;font-weight:750;color:#59687e;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid #dfe5ed;background:#fbfcfd;border-radius:11px;padding:10px 11px;outline:none;font-size:12px}.field input:focus,.field select:focus,.field textarea:focus{border-color:#e8b84e;box-shadow:0 0 0 3px rgba(236,168,20,.1)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
+.toast{display:none;position:fixed;right:22px;bottom:22px;background:#10233f;color:#fff;border-radius:12px;padding:11px 14px;font-size:11px;box-shadow:0 15px 40px rgba(0,0,0,.16);z-index:80}.toast.show{display:block}
+.mini-stat{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini{background:#f9fafc;border:1px solid var(--line);border-radius:13px;padding:12px}.mini span{display:block;color:var(--muted);font-size:10px}.mini strong{font-size:15px;margin-top:4px;display:block}
+
+/* Captura */
+.capture-controls{display:grid;grid-template-columns:1.2fr 1.2fr auto;gap:12px;align-items:end;margin-bottom:14px}
+.control label{display:block;font-size:10px;font-weight:750;color:#667085;margin-bottom:6px}
+.control input,.control select{width:100%;border:1px solid var(--line);border-radius:11px;background:#fbfcfd;padding:10px 11px;font-size:12px;outline:none}
+.capture-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0}
+.capture-stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px}
+.capture-stat span{display:block;color:var(--muted);font-size:10px;font-weight:650}.capture-stat strong{display:block;font-size:17px;margin-top:5px}
+.progress{height:9px;background:#edf1f5;border-radius:999px;overflow:hidden;margin:11px 0 16px}.progress>div{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:999px;transition:width .2s}
+.capture-layout{display:grid;grid-template-columns:1.35fr .65fr;gap:14px}
+.people-list{display:grid;gap:8px}.person{
+  display:grid;grid-template-columns:42px 1fr auto;gap:11px;align-items:center;border:1px solid var(--line);border-radius:15px;padding:11px;background:#fff;transition:.15s
+}
+.person:hover{border-color:#d4dbe6;transform:translateY(-1px)}.person.paid{border-color:#b7e7cf;background:#f6fcf9}.person.adjusted{border-color:#f2d18f;background:#fffaf0}
+.person-avatar{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#edf2f7;color:#36506e;font-size:12px;font-weight:800}
+.person-name{font-size:13px;font-weight:800}.person-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.person-right{text-align:right;display:flex;gap:8px;align-items:center}.person-amt{font-size:13px;font-weight:800;min-width:75px}.person-check{width:34px;height:34px;border-radius:11px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;color:#7c8ba1}
+.person.paid .person-check{background:var(--green-bg);color:var(--green);border-color:#b7e7cf}.person.adjusted .person-check{background:var(--amber-bg);color:var(--amber);border-color:#f2d18f}
+.extras{display:grid;gap:8px}.extra-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:11px}.extra-row:last-child{border-bottom:0}
+.capture-side .big-total{font-size:28px;font-weight:850;letter-spacing:-.03em;margin:6px 0 2px}
+.capture-side .helper{font-size:10px;color:var(--muted);line-height:1.5}
+.capture-side .btn{width:100%;margin-top:8px}
+
+/* Matriz */
+.matrix-controls{display:grid;grid-template-columns:1.2fr auto auto 1fr;gap:10px;align-items:end}
+.matrix-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}
+.matrix-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px}.matrix-kpi span{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}.matrix-kpi strong{display:block;font-size:15px;margin-top:4px}
+.matrix-table-wrap{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:14px;background:#fff}
+.matrix-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:10px}
+.matrix-table th{position:sticky;top:0;z-index:3;background:#f8fafc;padding:9px;border-bottom:1px solid var(--line);white-space:nowrap}
+.matrix-table td{padding:8px 9px;border-bottom:1px solid #eef1f4;border-right:1px solid #f0f2f5;text-align:right;white-space:nowrap}
+.matrix-table th:first-child,.matrix-table td:first-child{position:sticky;left:0;z-index:2;background:#fff;text-align:left;min-width:145px}
+.matrix-table th:first-child{z-index:5;background:#f8fafc}.mcell{min-width:57px;text-align:center!important;font-variant-numeric:tabular-nums}
+.mcell.ok{background:#edf9f2;color:#13784e}.mcell.warn{background:#fff6e7;color:#a86a08}.mcell.bad{background:#fff1f2;color:#be4450}.mcell.future{background:#fafbfc;color:#b2bac6}.mcell.current{background:#eef4ff;color:#496789}.mcell.manual{box-shadow:inset 0 0 0 2px #5c83bd}.mcell.real-manual{box-shadow:inset 0 0 0 2px #b58218}
+.matrix-filter{display:flex;gap:5px;flex-wrap:wrap}.matrix-filter .seg{padding:7px 9px}.matrix-historical{margin-top:10px;background:#fff7e8;color:#9e6509;border:1px solid #f3d394;border-radius:12px;padding:10px 12px;font-size:10px;line-height:1.5;display:none}.matrix-historical.show{display:block}
+.matrix-name{font-weight:750}.diff-pos{color:var(--green);font-weight:750}.diff-neg{color:var(--red);font-weight:750}
+
+@media(max-width:1100px){.app{grid-template-columns:1fr}.sidebar{display:none}.grid-kpi{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
+@media(max-width:1100px){.capture-layout{grid-template-columns:1fr}.capture-stats{grid-template-columns:repeat(3,1fr)}.matrix-controls{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.main{padding:12px}.capture-controls{grid-template-columns:1fr}.capture-stats{grid-template-columns:1fr 1fr}.matrix-summary{grid-template-columns:1fr 1fr}.matrix-controls{grid-template-columns:1fr}.grid-kpi{grid-template-columns:1fr}.topbar{height:auto}.profile .ptext{display:none}.pagehead{align-items:flex-start;flex-direction:column}.pagehead h1{font-size:29px}.formgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"><i data-lucide="church"></i></div>
+      <div><div class="brand-name" id="brandName">Mayordomía IBFILM</div><div class="brand-sub" id="brandSub">Sistema de Tesorería</div></div>
+    </div>
+    <div class="menu">
+      <button><i data-lucide="house"></i>Inicio</button>
+      <button class="active"><i data-lucide="globe-2"></i>Ofrenda Misionera</button>
+      <button><i data-lucide="layout-grid"></i>Matriz General</button>
+      <button><i data-lucide="landmark"></i>Cierre de Culto</button>
+      <button><i data-lucide="circle-plus"></i>Registro rápido</button>
+      <button><i data-lucide="wallet-cards"></i>Egresos</button>
+      <button><i data-lucide="users"></i>Miembros</button>
+      <button><i data-lucide="arrow-left-right"></i>Movimientos</button>
+      <button><i data-lucide="chart-no-axes-column"></i>Reportes</button>
+      <button><i data-lucide="heart"></i>Promesas</button>
+      <button><i data-lucide="cloud"></i>Respaldo</button>
+      <button><i data-lucide="settings"></i>Configuración</button>
+    </div>
+    <div class="side-footer">
+      <div class="sync-side"><span class="dot"></span><span id="syncSide">Conectando a Firebase…</span></div>
+      <div class="sync-detail">Esta versión usa los mismos ciclos y promesas de tu app actual.</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="search"><i data-lucide="search"></i><input id="globalSearch" placeholder="Buscar en ciclos o promesas…"></div>
+      <div class="profile">
+        <i data-lucide="bell" style="width:20px;color:#526177"></i>
+        <div class="avatar" id="avatar">ER</div>
+        <div class="ptext"><strong id="profileName">Tesorero</strong><small id="profileRole">Mayordomía</small></div>
+      </div>
+    </div>
+
+    <div class="pagehead">
+      <div><h1>Ofrenda Misionera</h1><p>Gestión integral por ciclo · versión funcional 3.0</p></div>
+      <div class="live"><span class="dot"></span><span id="liveText">Cargando datos reales…</span></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="resumen">Resumen</button>
+      <button class="tab" data-tab="captura">Captura</button>
+      <button class="tab" data-tab="matriz">Matriz</button>
+      <button class="tab" data-tab="ciclos">Ciclos</button>
+      <button class="tab" data-tab="promesas">Promesas</button>
+      <button class="tab" data-tab="beneficiarios">Beneficiarios</button>
+      <button class="tab" data-tab="dispersion">Dispersión</button>
+    </div>
+
+    <section id="resumen" class="pane active">
+      <div class="grid-kpi">
+        <div class="card kpi"><div class="kicon"><i data-lucide="coins"></i></div><div><div class="klabel">Recaudado / saldo del ciclo</div><div class="kvalue" id="kpiBalance">$0.00</div><div class="ksub" id="kpiMovs">0 movimientos asociados</div></div></div>
+        <div class="card kpi"><div class="kicon"><i data-lucide="calendar-days"></i></div><div><div class="klabel">Ciclo seleccionado</div><div class="kvalue" id="kpiCycle">—</div><div class="ksub" id="kpiDates">Selecciona un ciclo</div></div></div>
+        <div class="card kpi"><div class="kicon"><i data-lucide="heart-handshake"></i></div><div><div class="klabel">Promesas activas</div><div class="kvalue" id="kpiPromCount">0</div><div class="ksub" id="kpiPromTotal">$0.00 comprometidos por periodo</div></div></div>
+        <div class="card kpi"><div class="kicon"><i data-lucide="send"></i></div><div><div class="klabel">Beneficiarios</div><div class="kvalue">Próxima fase</div><div class="ksub">Catálogo + dispersión bancaria</div></div></div>
+      </div>
+
+      <div class="two">
+        <div class="card pad">
+          <div class="toolbar">
+            <div class="left"><h3>Ciclos misioneros</h3><p>Datos reales compartidos con la app actual</p></div>
+            <div class="actions"><button class="btn btn-soft" onclick="goTab('ciclos')">Administrar</button><button class="btn btn-primary" onclick="openCycleModal()">+ Nuevo ciclo</button></div>
+          </div>
+          <div id="cycleListHome" class="cycle-list"></div>
+        </div>
+        <div class="card pad">
+          <div class="toolbar"><div class="left"><h3>Promesas del ciclo</h3><p id="promSummaryCycle">Sin ciclo seleccionado</p></div><button class="btn btn-soft" onclick="goTab('promesas')">Ver detalle</button></div>
+          <div class="mini-stat">
+            <div class="mini"><span>Semanales</span><strong id="miniWeekly">0</strong></div>
+            <div class="mini"><span>Quincenales</span><strong id="miniBiweekly">0</strong></div>
+          </div>
+          <div class="summary-list">
+            <div class="summary-row"><span>Total semanal prometido</span><b id="weeklyTotal">$0.00</b></div>
+            <div class="summary-row"><span>Total quincenal prometido</span><b id="biweeklyTotal">$0.00</b></div>
+            <div class="summary-row"><span>Última actualización</span><b id="promUpdated">—</b></div>
+          </div>
+          <div class="notice" style="margin-top:12px">Los cambios que guardes en <b>Ciclos</b> o <b>Promesas</b> se almacenan en las mismas claves y colecciones Firebase que utiliza Mayordomía IBFILM actual.</div>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="captura" class="pane">
+      <div class="card pad">
+        <div class="toolbar">
+          <div class="left"><h3>Captura de Ofrenda Misionera</h3><p>Toca un hermano para marcar su promesa como recibida; vuelve a tocar para ajustar el monto.</p></div>
+          <div class="actions"><button class="btn btn-soft" onclick="resetCapture()">Limpiar captura</button><button class="btn btn-primary" onclick="saveCapture()">Guardar colecta</button></div>
+        </div>
+
+        <div class="capture-controls">
+          <div class="control"><label>Fecha del culto</label><input id="capDate" type="date" onchange="captureDateChanged(this.value)"></div>
+          <div class="control"><label>Ciclo misionero</label><select id="capCycle" onchange="captureCycleChanged(this.value)"></select></div>
+          <div class="prom-filter"><button id="capSegWeekly" class="seg active" onclick="setCaptureFreq('semanal')">Semanal</button><button id="capSegBiweekly" class="seg" onclick="setCaptureFreq('quincenal')">Quincenal</button></div>
+        </div>
+
+        <div class="capture-stats">
+          <div class="capture-stat"><span>Total recibido</span><strong id="capTotal">$0.00</strong></div>
+          <div class="capture-stat"><span>Pagaron</span><strong id="capPaid">0 / 0</strong></div>
+          <div class="capture-stat"><span>Faltan</span><strong id="capPending">0</strong></div>
+          <div class="capture-stat"><span>Meta del corte</span><strong id="capGoal">$0.00</strong></div>
+          <div class="capture-stat"><span>Progreso</span><strong id="capPct">0%</strong></div>
+        </div>
+        <div class="progress"><div id="capProgress" style="width:0%"></div></div>
+
+        <div class="capture-layout">
+          <div>
+            <div class="toolbar" style="margin-bottom:9px"><div class="left"><h3 id="capListTitle">Promesas semanales</h3><p id="capListSubtitle">0 promesas</p></div></div>
+            <div id="capturePeople" class="people-list"></div>
+          </div>
+
+          <aside class="capture-side">
+            <div class="card pad" style="box-shadow:none">
+              <div class="title">Otros aportantes</div>
+              <div class="subtitle">Visitantes, anónimos u ofrendas extraordinarias</div>
+              <div id="captureExtras" class="extras" style="margin-top:10px"></div>
+              <button class="btn btn-soft" onclick="openExtraModal()">+ Agregar otro aportante</button>
+            </div>
+            <div class="card pad" style="box-shadow:none;margin-top:12px">
+              <div class="klabel">Total listo para guardar</div>
+              <div class="big-total" id="capSideTotal">$0.00</div>
+              <div class="helper" id="capDraftStatus">El borrador se guarda automáticamente en este dispositivo.</div>
+              <button class="btn btn-primary" onclick="saveCapture()">Guardar colecta</button>
+              <button class="btn btn-dark" onclick="goTab('matriz')">Ver Matriz General</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="matriz" class="pane">
+      <div class="card pad">
+        <div class="toolbar">
+          <div class="left"><h3>Matriz General</h3><p>Control semanal y quincenal por hermano/a con los movimientos reales del ciclo.</p></div>
+          <div class="actions"><button class="btn btn-soft" onclick="exportMatrixCSV()">Exportar CSV</button><button id="matrixHistBtn" class="btn btn-soft" onclick="toggleHistoricalMode()">Captura histórica</button></div>
+        </div>
+
+        <div class="matrix-controls">
+          <div class="control"><label>Ciclo misionero</label><select id="matrixCycle" onchange="matrixCycleChanged(this.value)"></select></div>
+          <div class="prom-filter"><button id="matrixSegWeekly" class="seg active" onclick="setMatrixFreq('semanal')">Semanal</button><button id="matrixSegBiweekly" class="seg" onclick="setMatrixFreq('quincenal')">Quincenal</button></div>
+          <div class="matrix-filter">
+            <button id="mf-todos" class="seg active" onclick="setMatrixFilter('todos')">Todos</button>
+            <button id="mf-corriente" class="seg" onclick="setMatrixFilter('corriente')">Al corriente</button>
+            <button id="mf-pendientes" class="seg" onclick="setMatrixFilter('pendientes')">Pendientes</button>
+            <button id="mf-adelantados" class="seg" onclick="setMatrixFilter('adelantados')">Adelantados</button>
+          </div>
+          <div class="control"><label>Vista</label><div class="notice" style="padding:9px 10px">Desliza horizontalmente para ver todo el ciclo.</div></div>
+        </div>
+
+        <div id="matrixSummary" class="matrix-summary"></div>
+        <div id="matrixHistNotice" class="matrix-historical"></div>
+        <div id="matrixEmpty" class="empty" style="display:none"></div>
+        <div id="matrixTableWrap" class="matrix-table-wrap"></div>
+      </div>
+    </section>
+
+    <section id="ciclos" class="pane">
+      <div class="card pad">
+        <div class="toolbar">
+          <div class="left"><h3>Ciclos de Ofrenda Misionera</h3><p>Crear, editar, seleccionar y cerrar ciclos usando los datos reales.</p></div>
+          <button class="btn btn-primary" onclick="openCycleModal()">+ Nuevo ciclo</button>
+        </div>
+        <div id="cycleList" class="cycle-list"></div>
+      </div>
+    </section>
+
+    <section id="promesas" class="pane">
+      <div class="card pad">
+        <div class="toolbar">
+          <div class="left"><h3 id="promTitle">Promesas del ciclo</h3><p>Edita la misma información que utiliza la captura misionera actual.</p></div>
+          <div class="actions">
+            <div class="prom-filter"><button id="segWeekly" class="seg active" onclick="setPromFreq('semanal')">Semanales</button><button id="segBiweekly" class="seg" onclick="setPromFreq('quincenal')">Quincenales</button></div>
+            <button class="btn btn-primary" onclick="openPromiseModal()">+ Nueva promesa</button>
+          </div>
+        </div>
+        <div class="tablebox">
+          <table>
+            <thead><tr><th>Orden</th><th>Nombre</th><th>Frecuencia</th><th>Promesa</th><th>Estatus</th><th>Observaciones</th><th></th></tr></thead>
+            <tbody id="promTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="beneficiarios" class="pane"><div class="card placeholder"><div class="big">Beneficiarios · fase prioritaria siguiente</div><p>Después de validar Ciclos y Promesas, aquí crearemos el catálogo real de hermanos beneficiarios con monto, periodicidad, banco y cuenta enmascarada. Será la fuente de la dispersión.</p></div></section>
+    <section id="dispersion" class="pane"><div class="card placeholder"><div class="big">Dispersión · prioridad principal</div><p>Este módulo se conectará al catálogo de beneficiarios y posteriormente a un backend seguro para transferencias. Nunca se expondrán credenciales bancarias en el navegador.</p></div></section>
+  </main>
+</div>
+
+<div class="modalbg" id="cycleModal">
+  <div class="modal">
+    <h3 id="cycleModalTitle">Nuevo ciclo</h3>
+    <p>Los cambios se reflejarán en la app actual y en Firebase.</p>
+    <div class="formgrid">
+      <div class="field full"><label>Nombre del ciclo</label><input id="cycleName" placeholder="Ej. 2026-2027"></div>
+      <div class="field"><label>Fecha de inicio</label><input id="cycleStart" type="date"></div>
+      <div class="field"><label>Fecha de cierre</label><input id="cycleEnd" type="date"></div>
+      <div class="field full"><label>Estado</label><select id="cycleStatus"><option value="activo">Activo</option><option value="cerrado">Cerrado</option></select></div>
+    </div>
+    <input type="hidden" id="cycleEditId">
+    <div class="modal-actions"><button class="btn btn-soft" onclick="closeModal('cycleModal')">Cancelar</button><button class="btn btn-primary" onclick="saveCycle()">Guardar ciclo</button></div>
+  </div>
+</div>
+
+<div class="modalbg" id="promiseModal">
+  <div class="modal">
+    <h3 id="promiseModalTitle">Nueva promesa</h3>
+    <p id="promiseModalSub">Se guardará en el ciclo seleccionado.</p>
+    <div class="formgrid">
+      <div class="field full"><label>Nombre</label><input id="promiseName" placeholder="Nombre del hermano/a"></div>
+      <div class="field"><label>Monto prometido</label><input id="promiseAmount" type="number" min="0" step="1"></div>
+      <div class="field"><label>Estatus</label><select id="promiseStatus"><option>Activo</option><option>Inactivo</option></select></div>
+      <div class="field full"><label>Observaciones</label><textarea id="promiseObs" rows="3" placeholder="Opcional"></textarea></div>
+    </div>
+    <input type="hidden" id="promiseEditId">
+    <div class="modal-actions"><button class="btn btn-soft" onclick="closeModal('promiseModal')">Cancelar</button><button class="btn btn-primary" onclick="savePromise()">Guardar promesa</button></div>
+  </div>
+</div>
+
+
+<div class="modalbg" id="adjustModal">
+  <div class="modal">
+    <h3 id="adjustTitle">Ajustar monto</h3>
+    <p>Escribe la cantidad realmente recibida. Si difiere de la promesa quedará marcada como ajuste.</p>
+    <div class="formgrid">
+      <div class="field full"><label>Monto recibido</label><input id="adjustAmount" type="number" min="0" step="0.01"></div>
+      <div class="field full"><label>Observaciones</label><textarea id="adjustObs" rows="3" placeholder="Opcional"></textarea></div>
+    </div>
+    <input type="hidden" id="adjustPromiseId">
+    <div class="modal-actions"><button class="btn btn-soft" onclick="unmarkAdjusted()">Desmarcar</button><button class="btn btn-soft" onclick="closeModal('adjustModal')">Cancelar</button><button class="btn btn-primary" onclick="confirmAdjustment()">Guardar ajuste</button></div>
+  </div>
+</div>
+
+<div class="modalbg" id="extraModal">
+  <div class="modal">
+    <h3>Otro aportante</h3>
+    <p>Registra un visitante, anónimo u ofrenda extraordinaria dentro de esta colecta.</p>
+    <div class="formgrid">
+      <div class="field full"><label>Nombre</label><input id="extraName" placeholder="Anónimo"></div>
+      <div class="field"><label>Monto</label><input id="extraAmount" type="number" min="0" step="0.01"></div>
+      <div class="field"><label>Observaciones</label><input id="extraObs" placeholder="Opcional"></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-soft" onclick="closeModal('extraModal')">Cancelar</button><button class="btn btn-primary" onclick="saveExtra()">Agregar</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
+  authDomain: "mayordomia-ibfilm.firebaseapp.com",
+  projectId: "mayordomia-ibfilm",
+  storageBucket: "mayordomia-ibfilm.firebasestorage.app",
+  messagingSenderId: "460839237215",
+  appId: "1:460839237215:web:82418bf1627eb9c40a8dea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const K_CYC='ibfilm_om_ciclos_v1';
+const K_PROM='ibfilm_om_promesas_v1';
+const K_MOV='ibfilm_movimientos_v2';
+const K_CFG='ibfilm_config_v1';
+const K_DEL='ibfilm_deleted_om';
+const K_ACTIVE='ibfilm_v3_active_cycle';
+const K_COL='ibfilm_colecta_draft_v1';
+const K_MAT='ibfilm_matriz_manual_v1';
+const K_MAT_PENDING='ibfilm_matriz_manual_pending_v1';
+const COL_CYC='om_ciclos', COL_PROM='om_promesas', COL_MOV='movimientos', COL_MAT='om_matriz_manual';
+
+const state={
+  cycles:[],promises:{},movements:[],manualMatrix:{},activeCycleId:null,promFreq:'semanal',
+  capture:{cycleId:null,date:'',freq:'semanal',status:{},extras:[],adjustId:null},
+  matrix:{cycleId:null,freq:'semanal',filter:'todos',historical:false,clickTimer:null,lastData:null}
+};
+const $=id=>document.getElementById(id);
+const parse=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch{return fallback}};
+const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(n)||0);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg){
+  $('toast').textContent=msg;$('toast').classList.add('show');
+  clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2800);
+}
+window.closeModal=id=>$(id).classList.remove('open');
+window.goTab=id=>{
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active',p.id===id));
+  if(id==='ciclos')renderCycles();
+  if(id==='promesas')renderPromises();
+  if(id==='captura')renderCapture(true);
+  if(id==='matriz')renderMatrix();
+};
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>window.goTab(t.dataset.tab)));
+document.querySelectorAll('.modalbg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)window.closeModal(m.id)}));
+
+function configUI(){
+  const c=parse(K_CFG,{});
+  $('brandName').textContent=c.appName||'Mayordomía IBFILM';
+  $('brandSub').textContent=c.iglesia||'Sistema de Tesorería';
+  const n=c.tesorero||'Tesorero';
+  $('profileName').textContent=n;
+  $('profileRole').textContent='Tesorería';
+  $('avatar').textContent=n.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'ER';
+}
+function normalizeProm(data){
+  const norm=(arr,freq)=>(Array.isArray(arr)?arr:[]).map((m,i)=>({
+    id:m.id||('p_'+freq+'_'+uid()),nombre:String(m.nombre||'').trim(),
+    promesa:Number(m.promesa??m.monto??0)||0,freq:freq==='semanal'?'Semanal':'Quincenal',
+    estatus:m.estatus||'Activo',orden:Number.isFinite(+m.orden)?+m.orden:i+1,obs:m.obs||''
+  })).filter(x=>x.nombre).sort((a,b)=>(a.orden||0)-(b.orden||0));
+  return {semanal:norm(data?.semanal,'semanal'),quincenal:norm(data?.quincenal,'quincenal'),updatedAt:data?.updatedAt||new Date(0).toISOString()};
+}
+function loadLocal(){
+  state.cycles=parse(K_CYC,[]);
+  state.promises=parse(K_PROM,{});
+  state.movements=parse(K_MOV,[]);state.manualMatrix=parse(K_MAT,{});
+  const saved=localStorage.getItem(K_ACTIVE);
+  state.activeCycleId = state.cycles.some(c=>c.id===saved) ? saved :
+    (state.cycles.find(c=>String(c.estado||'').toLowerCase()==='activo')?.id || state.cycles[0]?.id || null);
+  if(state.activeCycleId)localStorage.setItem(K_ACTIVE,state.activeCycleId);
+  state.capture.cycleId=state.activeCycleId;state.capture.date=todayISO();state.matrix.cycleId=state.activeCycleId;
+}
+function activeCycle(){return state.cycles.find(c=>c.id===state.activeCycleId)||null}
+function activeProm(){return normalizeProm(state.promises[state.activeCycleId]||{})}
+function dateLabel(s){if(!s)return 'Sin fecha';const d=new Date(s+'T12:00:00');return d.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}
+function cycleMovements(c){
+  if(!c)return [];
+  const target=('Ofrenda Misionera '+c.nombre).toLowerCase();
+  return state.movements.filter(m=>{
+    const byId=m.cicloId===c.id;
+    const txt=[m.concepto,m.categoria,m.cicloNombre,m.origen].filter(Boolean).join(' ').toLowerCase();
+    return byId || txt.includes(target.toLowerCase()) || txt.includes(String(c.id).toLowerCase());
+  });
+}
+function renderSummary(){
+  const c=activeCycle(), p=activeProm(), movs=cycleMovements(c);
+  const balance=movs.reduce((s,m)=>s+(m.tipo==='Ingreso'?Number(m.monto||0):m.tipo==='Egreso'?-Number(m.monto||0):0),0);
+  const all=[...p.semanal,...p.quincenal].filter(x=>String(x.estatus).toLowerCase()!=='inactivo');
+  $('kpiBalance').textContent=money(balance);
+  $('kpiMovs').textContent=`${movs.length} movimientos asociados`;
+  $('kpiCycle').textContent=c?.nombre||'—';
+  $('kpiDates').textContent=c?`${dateLabel(c.inicio)} – ${dateLabel(c.fin)}`:'Selecciona un ciclo';
+  $('kpiPromCount').textContent=all.length;
+  $('kpiPromTotal').textContent=`${money(all.reduce((s,x)=>s+x.promesa,0))} comprometidos por periodo`;
+  $('promSummaryCycle').textContent=c?`Ciclo ${c.nombre}`:'Sin ciclo seleccionado';
+  $('miniWeekly').textContent=p.semanal.length;
+  $('miniBiweekly').textContent=p.quincenal.length;
+  $('weeklyTotal').textContent=money(p.semanal.reduce((s,x)=>s+x.promesa,0));
+  $('biweeklyTotal').textContent=money(p.quincenal.reduce((s,x)=>s+x.promesa,0));
+  $('promUpdated').textContent=p.updatedAt&&new Date(p.updatedAt).getTime()?new Date(p.updatedAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}):'—';
+  renderCyclesHome();
+}
+function renderCyclesHome(){
+  const host=$('cycleListHome');const list=[...state.cycles].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,3);
+  if(!list.length){host.innerHTML='<div class="empty"><i data-lucide="calendar-x"></i><div>Sin ciclos registrados</div></div>';lucide.createIcons();return}
+  host.innerHTML=list.map(c=>cycleHTML(c,true)).join('');lucide.createIcons();
+}
+function cycleHTML(c,compact=false){
+  const selected=c.id===state.activeCycleId;
+  return `<div class="cycle ${selected?'selected':''}">
+    <div>
+      <span class="chip ${String(c.estado).toLowerCase()==='activo'?'green':'gray'}">${esc(c.estado||'Activo')}</span>
+      <h4>${esc(c.nombre)}</h4>
+      <p>${dateLabel(c.inicio)} – ${dateLabel(c.fin)}${selected?' · Seleccionado':''}</p>
+    </div>
+    <div class="cycle-actions">
+      ${!selected?`<button class="btn btn-soft" onclick="selectCycle('${esc(c.id)}')">Seleccionar</button>`:''}
+      ${compact?'':`<button class="iconbtn" title="Editar" onclick="openCycleModal('${esc(c.id)}')"><i data-lucide="pencil"></i></button><button class="iconbtn danger" title="Eliminar" onclick="deleteCycleUI('${esc(c.id)}')"><i data-lucide="trash-2"></i></button>`}
+    </div>
+  </div>`;
+}
+function renderCycles(){
+  const host=$('cycleList');const list=[...state.cycles].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  host.innerHTML=list.length?list.map(c=>cycleHTML(c,false)).join(''):'<div class="empty"><i data-lucide="calendar-plus"></i><div>No hay ciclos. Crea el primero.</div></div>';
+  lucide.createIcons();
+}
+window.selectCycle=id=>{
+  state.activeCycleId=id;localStorage.setItem(K_ACTIVE,id);
+  state.capture.cycleId=id;state.matrix.cycleId=id;loadCaptureDraft();
+  renderAll();toast('Ciclo seleccionado');
+};
+window.openCycleModal=id=>{
+  const c=state.cycles.find(x=>x.id===id);
+  $('cycleModalTitle').textContent=c?'Editar ciclo':'Nuevo ciclo';
+  $('cycleEditId').value=c?.id||'';$('cycleName').value=c?.nombre||'';$('cycleStart').value=c?.inicio||'';$('cycleEnd').value=c?.fin||'';$('cycleStatus').value=c?.estado||'activo';
+  $('cycleModal').classList.add('open');
+};
+async function saveCycleCloud(c){await setDoc(doc(db,COL_CYC,c.id),c)}
+window.saveCycle=async()=>{
+  const name=$('cycleName').value.trim();if(!name)return toast('Escribe el nombre del ciclo');
+  const editId=$('cycleEditId').value;const now=new Date().toISOString();const id=editId||uid();
+  const old=state.cycles.find(c=>c.id===id);
+  const c={...(old||{}),id,nombre:name,inicio:$('cycleStart').value,fin:$('cycleEnd').value,estado:$('cycleStatus').value,createdAt:old?.createdAt||now,updatedAt:now};
+  const idx=state.cycles.findIndex(x=>x.id===id);if(idx>=0)state.cycles[idx]=c;else state.cycles.push(c);
+  localStorage.setItem(K_CYC,JSON.stringify(state.cycles));
+  if(!editId){
+    const all=state.promises; if(!all[id]){
+      const source=state.promises[state.activeCycleId]||{semanal:[],quincenal:[]};
+      all[id]=normalizeProm(JSON.parse(JSON.stringify(source)));all[id].updatedAt=now;
+      localStorage.setItem(K_PROM,JSON.stringify(all));
+      await setDoc(doc(db,COL_PROM,id),{id,cicloId:id,data:all[id],updatedAt:now});
+    }
+    state.activeCycleId=id;localStorage.setItem(K_ACTIVE,id);
+  }
+  try{await saveCycleCloud(c);window.closeModal('cycleModal');renderAll();toast(`Ciclo "${name}" guardado`)}catch(e){toast('Guardado local; Firebase reportó: '+(e.code||e.message))}
+};
+window.deleteCycleUI=async id=>{
+  const c=state.cycles.find(x=>x.id===id);if(!c)return;
+  if(!confirm(`¿Eliminar el ciclo "${c.nombre}"? Los movimientos NO se eliminarán.`))return;
+  state.cycles=state.cycles.filter(x=>x.id!==id);localStorage.setItem(K_CYC,JSON.stringify(state.cycles));
+  const del=parse(K_DEL,[]);if(!del.includes(id)){del.push(id);localStorage.setItem(K_DEL,JSON.stringify(del))}
+  if(state.activeCycleId===id){state.activeCycleId=state.cycles.find(x=>x.estado==='activo')?.id||state.cycles[0]?.id||null;if(state.activeCycleId)localStorage.setItem(K_ACTIVE,state.activeCycleId);else localStorage.removeItem(K_ACTIVE)}
+  try{await deleteDoc(doc(db,COL_CYC,id))}catch{}
+  renderAll();toast('Ciclo eliminado');
+};
+
+window.setPromFreq=f=>{state.promFreq=f;renderPromises()};
+function currentPromArray(){const p=activeProm();return state.promFreq==='semanal'?p.semanal:p.quincenal}
+function renderPromises(){
+  const c=activeCycle();$('promTitle').textContent=c?`Promesas · ${c.nombre}`:'Promesas del ciclo';
+  $('segWeekly').classList.toggle('active',state.promFreq==='semanal');$('segBiweekly').classList.toggle('active',state.promFreq==='quincenal');
+  const arr=currentPromArray();const host=$('promTable');
+  if(!c){host.innerHTML='<tr><td colspan="7" class="muted">Primero selecciona un ciclo.</td></tr>';return}
+  host.innerHTML=arr.length?arr.map((p,i)=>`<tr>
+    <td>${p.orden||i+1}</td><td><b>${esc(p.nombre)}</b></td><td>${esc(p.freq)}</td><td class="money">${money(p.promesa)}</td>
+    <td><span class="chip ${String(p.estatus).toLowerCase()==='inactivo'?'gray':'green'}">${esc(p.estatus)}</span></td><td class="muted">${esc(p.obs||'—')}</td>
+    <td><div class="actions"><button class="iconbtn" onclick="openPromiseModal('${esc(p.id)}')"><i data-lucide="pencil"></i></button><button class="iconbtn danger" onclick="deletePromiseUI('${esc(p.id)}')"><i data-lucide="trash-2"></i></button></div></td>
+  </tr>`).join(''):'<tr><td colspan="7" class="muted">No hay promesas en esta frecuencia.</td></tr>';
+  lucide.createIcons();
+}
+window.openPromiseModal=id=>{
+  const c=activeCycle();if(!c)return toast('Primero selecciona un ciclo');
+  const p=currentPromArray().find(x=>x.id===id);
+  $('promiseModalTitle').textContent=p?'Editar promesa':'Nueva promesa';$('promiseModalSub').textContent=`Ciclo ${c.nombre} · ${state.promFreq==='semanal'?'Semanal':'Quincenal'}`;
+  $('promiseEditId').value=p?.id||'';$('promiseName').value=p?.nombre||'';$('promiseAmount').value=p?.promesa??'';$('promiseStatus').value=p?.estatus||'Activo';$('promiseObs').value=p?.obs||'';
+  $('promiseModal').classList.add('open');
+};
+async function persistPromises(){
+  const id=state.activeCycleId;const data=normalizeProm(state.promises[id]||{});data.updatedAt=new Date().toISOString();state.promises[id]=data;
+  localStorage.setItem(K_PROM,JSON.stringify(state.promises));
+  await setDoc(doc(db,COL_PROM,id),{id,cicloId:id,data,updatedAt:data.updatedAt});
+}
+window.savePromise=async()=>{
+  const c=activeCycle();if(!c)return toast('Selecciona un ciclo');
+  const name=$('promiseName').value.trim();const amount=Number($('promiseAmount').value||0);if(!name)return toast('Escribe el nombre');if(amount<0)return toast('Monto inválido');
+  const data=normalizeProm(state.promises[c.id]||{});const arr=state.promFreq==='semanal'?data.semanal:data.quincenal;const edit=$('promiseEditId').value;
+  const old=arr.find(x=>x.id===edit);const item={id:edit||('p_'+state.promFreq+'_'+uid()),nombre:name,promesa:amount,freq:state.promFreq==='semanal'?'Semanal':'Quincenal',estatus:$('promiseStatus').value,orden:old?.orden||arr.length+1,obs:$('promiseObs').value.trim()};
+  const idx=arr.findIndex(x=>x.id===item.id);if(idx>=0)arr[idx]=item;else arr.push(item);arr.forEach((x,i)=>x.orden=i+1);
+  state.promises[c.id]=data;
+  try{await persistPromises();window.closeModal('promiseModal');renderAll();toast('Promesa guardada')}catch(e){renderAll();toast('Guardada localmente; Firebase reportó: '+(e.code||e.message))}
+};
+window.deletePromiseUI=async id=>{
+  const c=activeCycle();if(!c)return;
+  const data=normalizeProm(state.promises[c.id]||{});const key=state.promFreq==='semanal'?'semanal':'quincenal';const p=data[key].find(x=>x.id===id);if(!p)return;
+  if(!confirm(`¿Eliminar la promesa de "${p.nombre}"?`))return;
+  data[key]=data[key].filter(x=>x.id!==id);data[key].forEach((x,i)=>x.orden=i+1);state.promises[c.id]=data;
+  try{await persistPromises();renderAll();toast('Promesa eliminada')}catch(e){renderAll();toast('Eliminada localmente; Firebase reportó un error')}
+};
+
+
+/* =========================
+   CAPTURA MISIONERA 3.0
+========================= */
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function nowHour(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function initials(name){return String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'—'}
+function draftKey(cycleId){return K_COL+'_'+(cycleId||'legacy')}
+function activeCapturePromises(){
+  const id=state.capture.cycleId||state.activeCycleId;
+  const p=normalizeProm(state.promises[id]||{});
+  return state.capture.freq==='quincenal'?p.quincenal:p.semanal;
+}
+function resetCaptureState(keepDate=true){
+  const date=keepDate?(state.capture.date||todayISO()):todayISO();
+  state.capture={cycleId:state.activeCycleId,date,freq:state.capture.freq||'semanal',status:{},extras:[],adjustId:null};
+}
+function loadCaptureDraft(){
+  const cycleId=state.capture.cycleId||state.activeCycleId;
+  state.capture.cycleId=cycleId;
+  if(!state.capture.date)state.capture.date=todayISO();
+  const raw=localStorage.getItem(draftKey(cycleId))||localStorage.getItem(K_COL);
+  if(!raw)return;
+  try{
+    const d=JSON.parse(raw);
+    const sameCycle=!d.cicloId||d.cicloId===cycleId;
+    const sameDate=d.fecha===todayISO()||d.fecha===state.capture.date;
+    if(sameCycle&&sameDate){
+      state.capture.date=d.fecha||state.capture.date;
+      state.capture.freq=d.freq||'semanal';
+      state.capture.status=d.estado||{};
+      state.capture.extras=Array.isArray(d.extras)?d.extras:[];
+    }
+  }catch{}
+}
+function saveCaptureDraft(){
+  const d={fecha:state.capture.date,cicloId:state.capture.cycleId||state.activeCycleId,freq:state.capture.freq,estado:state.capture.status,extras:state.capture.extras};
+  localStorage.setItem(draftKey(d.cicloId),JSON.stringify(d));
+  $('capDraftStatus').textContent='Borrador guardado automáticamente · '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+}
+function captureCycleOptions(){
+  const html=state.cycles.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}${String(c.estado).toLowerCase()==='cerrado'?' — Cerrado':''}</option>`).join('');
+  $('capCycle').innerHTML=html||'<option value="">Sin ciclos</option>';
+  $('capCycle').value=state.capture.cycleId||state.activeCycleId||'';
+}
+function renderCapture(loadDraft=false){
+  if(!state.capture.cycleId)state.capture.cycleId=state.activeCycleId;
+  if(!state.capture.date)state.capture.date=todayISO();
+  if(loadDraft)loadCaptureDraft();
+  captureCycleOptions();
+  $('capDate').value=state.capture.date;
+  $('capSegWeekly').classList.toggle('active',state.capture.freq==='semanal');
+  $('capSegBiweekly').classList.toggle('active',state.capture.freq==='quincenal');
+  const list=activeCapturePromises();
+  let paid=0,total=0;
+  list.forEach(p=>{const s=state.capture.status[p.nombre];if(s&&(s.estado==='pagado'||s.estado==='ajustado')){paid++;total+=Number(s.monto||0)}});
+  const extrasTotal=state.capture.extras.reduce((s,e)=>s+Number(e.monto||0),0);
+  const goal=list.reduce((s,p)=>s+Number(p.promesa||0),0);
+  const grand=total+extrasTotal;
+  const pct=goal>0?Math.min(100,Math.round((total/goal)*100)):0;
+  $('capTotal').textContent=money(grand);$('capSideTotal').textContent=money(grand);$('capPaid').textContent=`${paid} / ${list.length}`;$('capPending').textContent=Math.max(0,list.length-paid);$('capGoal').textContent=money(goal);$('capPct').textContent=pct+'%';$('capProgress').style.width=pct+'%';
+  $('capListTitle').textContent=state.capture.freq==='semanal'?'Promesas semanales':'Promesas quincenales';$('capListSubtitle').textContent=`${list.length} promesas · ${paid} recibidas`;
+  $('capturePeople').innerHTML=list.length?list.map(p=>{
+    const s=state.capture.status[p.nombre]||{estado:'pendiente',monto:p.promesa};
+    const cls=s.estado==='pagado'?'paid':s.estado==='ajustado'?'adjusted':'';
+    const amt=(s.estado==='pagado'||s.estado==='ajustado')?s.monto:p.promesa;
+    return `<div class="person ${cls}" onclick="captureToggle('${esc(p.id)}')">
+      <div class="person-avatar">${esc(initials(p.nombre))}</div>
+      <div><div class="person-name">${esc(p.nombre)}</div><div class="person-sub">Promesa: ${money(p.promesa)}${s.obs?` · ${esc(s.obs)}`:''}</div></div>
+      <div class="person-right"><div class="person-amt">${money(amt)}</div><button class="person-check" onclick="event.stopPropagation();captureToggle('${esc(p.id)}')"><i data-lucide="${cls?'check':'circle'}"></i></button></div>
+    </div>`;
+  }).join(''):'<div class="empty">No hay promesas en esta frecuencia.</div>';
+  $('captureExtras').innerHTML=state.capture.extras.length?state.capture.extras.map((e,i)=>`<div class="extra-row"><div><b>${esc(e.nombre||'Anónimo')}</b><div class="muted">${esc(e.obs||'')}</div></div><div><b>${money(e.monto)}</b> <button class="iconbtn danger" onclick="removeExtra(${i})"><i data-lucide="x"></i></button></div></div>`).join(''):'<div class="muted" style="font-size:11px">Sin aportantes adicionales.</div>';
+  saveCaptureDraft();lucide.createIcons();
+}
+window.captureDateChanged=v=>{state.capture.date=v||todayISO();state.capture.status={};state.capture.extras=[];loadCaptureDraft();renderCapture(false)}
+window.captureCycleChanged=id=>{if(!id)return;state.activeCycleId=id;state.capture.cycleId=id;state.matrix.cycleId=id;localStorage.setItem(K_ACTIVE,id);state.capture.status={};state.capture.extras=[];loadCaptureDraft();renderAll()}
+window.setCaptureFreq=f=>{state.capture.freq=f==='quincenal'?'quincenal':'semanal';renderCapture(false)}
+window.captureToggle=id=>{
+  const p=activeCapturePromises().find(x=>x.id===id);if(!p)return;
+  const s=state.capture.status[p.nombre];
+  if(!s||s.estado==='pendiente'||s.estado==='ausente'){state.capture.status[p.nombre]={estado:'pagado',monto:p.promesa,obs:''};renderCapture(false);if(navigator.vibrate)navigator.vibrate(30);return}
+  openAdjustModal(id);
+}
+window.openAdjustModal=id=>{
+  const p=activeCapturePromises().find(x=>x.id===id);if(!p)return;
+  const s=state.capture.status[p.nombre]||{};
+  state.capture.adjustId=id;$('adjustPromiseId').value=id;$('adjustTitle').textContent='Ajustar · '+p.nombre;$('adjustAmount').value=s.monto||p.promesa;$('adjustObs').value=s.obs||'';$('adjustModal').classList.add('open')
+}
+window.confirmAdjustment=()=>{
+  const id=$('adjustPromiseId').value,p=activeCapturePromises().find(x=>x.id===id);if(!p)return;
+  const amount=Number($('adjustAmount').value||0);if(!(amount>0))return toast('Ingresa un monto válido');
+  state.capture.status[p.nombre]={estado:Math.abs(amount-p.promesa)>.009?'ajustado':'pagado',monto:amount,obs:$('adjustObs').value.trim()};window.closeModal('adjustModal');renderCapture(false)
+}
+window.unmarkAdjusted=()=>{
+  const id=$('adjustPromiseId').value,p=activeCapturePromises().find(x=>x.id===id);if(p)state.capture.status[p.nombre]={estado:'pendiente',monto:0,obs:''};window.closeModal('adjustModal');renderCapture(false)
+}
+window.openExtraModal=()=>{$('extraName').value='';$('extraAmount').value='';$('extraObs').value='';$('extraModal').classList.add('open')}
+window.saveExtra=()=>{const amount=Number($('extraAmount').value||0);if(!(amount>0))return toast('Ingresa un monto válido');state.capture.extras.push({nombre:$('extraName').value.trim()||'Anónimo',monto:amount,obs:$('extraObs').value.trim()});window.closeModal('extraModal');renderCapture(false)}
+window.removeExtra=i=>{state.capture.extras.splice(i,1);renderCapture(false)}
+window.resetCapture=()=>{if(!confirm('¿Limpiar la captura actual?'))return;localStorage.removeItem(draftKey(state.capture.cycleId));state.capture.status={};state.capture.extras=[];renderCapture(false);toast('Captura limpiada')}
+window.saveCapture=async()=>{
+  const c=state.cycles.find(x=>x.id===state.capture.cycleId)||activeCycle();if(!c)return toast('Selecciona un ciclo');
+  const date=state.capture.date;if(!date)return toast('Selecciona la fecha');
+  const list=activeCapturePromises();const paid=list.filter(p=>{const s=state.capture.status[p.nombre];return s&&(s.estado==='pagado'||s.estado==='ajustado')});
+  if(!paid.length&&!state.capture.extras.length)return toast('No hay aportaciones marcadas para guardar');
+  const total=paid.reduce((s,p)=>s+Number(state.capture.status[p.nombre].monto||0),0)+state.capture.extras.reduce((s,e)=>s+Number(e.monto||0),0);
+  const count=paid.length+state.capture.extras.length;
+  const cicloNombre='Ofrenda Misionera '+c.nombre;
+  if(!confirm(`¿Guardar colecta misionera?\n${count} aportantes — ${money(total)}\nFecha: ${date}\nCiclo: ${cicloNombre}`))return;
+  const hour=nowHour(),newMov=[];
+  paid.forEach(p=>{const s=state.capture.status[p.nombre];newMov.push({id:uid(),tipo:'Ingreso',fecha:date,hora:hour,concepto:cicloNombre,categoria:'Misiones',monto:Number(s.monto||0),metodo:'Efectivo',aportante:p.nombre,responsable:p.nombre,miembroId:null,observaciones:s.obs||(s.estado==='ajustado'?`Promesa: ${money(p.promesa)}`:''),origen:'ofrenda-misionera-'+c.id,frecuencia:state.capture.freq,cicloId:c.id,cicloNombre})});
+  state.capture.extras.forEach(e=>newMov.push({id:uid(),tipo:'Ingreso',fecha:date,hora:hour,concepto:cicloNombre,categoria:'Misiones',monto:Number(e.monto||0),metodo:'Efectivo',aportante:e.nombre,responsable:e.nombre,miembroId:null,observaciones:e.obs||'',origen:'ofrenda-misionera-'+c.id,frecuencia:'extra',cicloId:c.id,cicloNombre}));
+  const byId=new Map(state.movements.map(m=>[m.id,m]));newMov.forEach(m=>byId.set(m.id,m));state.movements=[...byId.values()];localStorage.setItem(K_MOV,JSON.stringify(state.movements));
+  let failed=0;for(const m of newMov){try{await setDoc(doc(db,COL_MOV,m.id),m)}catch{failed++}}
+  localStorage.removeItem(draftKey(c.id));localStorage.removeItem(K_COL);state.capture.status={};state.capture.extras=[];renderAll();
+  toast(failed?`Colecta guardada localmente; ${failed} movimiento(s) pendientes de Firebase`:`Colecta guardada: ${money(total)} · ${count} aportantes`);
+}
+
+/* =========================
+   MATRIZ GENERAL 3.0
+========================= */
+function clone(obj){try{return JSON.parse(JSON.stringify(obj||{}))}catch{return{}}}
+function matrixMergeData(localData,cloudData){
+  const out=clone(localData||{}),cloud=clone(cloudData||{});out.semanal=out.semanal||{};out.quincenal=out.quincenal||{};
+  ['semanal','quincenal'].forEach(freq=>{const cf=cloud[freq]||{};Object.keys(cf).forEach(name=>{out[freq][name]=out[freq][name]||{};Object.keys(cf[name]||{}).forEach(iso=>{const cr=cf[name][iso],lr=out[freq][name][iso];const ct=new Date(cr?.updatedAt||cloud.updatedAt||0).getTime(),lt=new Date(lr?.updatedAt||out.updatedAt||0).getTime();if(!lr||ct>=lt)out[freq][name][iso]=cr})})});
+  out.cicloId=out.cicloId||cloud.cicloId;out.updatedAt=new Date(cloud.updatedAt||0)>new Date(out.updatedAt||0)?cloud.updatedAt:(out.updatedAt||cloud.updatedAt||new Date().toISOString());return out
+}
+function matrixManualCycle(id){return state.manualMatrix[id]||{cicloId:id,semanal:{},quincenal:{},updatedAt:new Date(0).toISOString()}}
+function parseDate(s){if(!s)return null;const p=String(s).split('-').map(Number);if(p.length!==3||!p[0]||!p[1]||!p[2])return null;return new Date(p[0],p[1]-1,p[2],12)}
+function isoDate(d){return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'):''}
+function dm(d){return d?String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'):''}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function matrixCycle(){return state.cycles.find(c=>c.id===(state.matrix.cycleId||state.activeCycleId))||null}
+function isHistoricalCycle(c){const t=String(c?.nombre||c?.id||'').toLowerCase();return t.includes('2025')&&t.includes('2026')}
+function matrixMovements(c){
+  if(!c)return[];const name='Ofrenda Misionera '+c.nombre;
+  return state.movements.filter(m=>{
+    if(m.tipo!=='Ingreso'||m.categoria!=='Misiones')return false;
+    if(m.cicloId===c.id||m.origen==='ofrenda-misionera-'+c.id||m.cicloNombre===name||m.concepto===name)return true;
+    const legacy=!m.cicloId&&!m.cicloNombre&&/Ofrenda Misionera|Misiones/i.test(String(m.concepto||m.origen||''));
+    return legacy&&state.cycles.length<=1
+  })
+}
+function matrixPeriods(c,movs,freq){
+  let start=parseDate(c?.inicio);if(!start&&isHistoricalCycle(c))start=parseDate('2025-08-17');
+  if(!start){const dates=movs.map(m=>parseDate(m.fecha)).filter(Boolean).sort((a,b)=>a-b);start=dates[0]||new Date()}
+  let end=parseDate(c?.fin);if(!end||end<=start)end=addDays(start,364);
+  const step=freq==='quincenal'?14:7,arr=[],today=new Date();today.setHours(12,0,0,0);let d=new Date(start),guard=0;
+  while(d<end&&guard<90){const next=addDays(d,step),endEx=next>=end?addDays(end,1):next;const temporal=today<d?'future':today<endEx?'current':'past';arr.push({date:new Date(d),endExclusive:endEx,iso:isoDate(d),label:dm(d),temporal,exigible:today>=d,vencido:today>=endEx});d=addDays(d,step);guard++}
+  if(!arr.length){const endEx=addDays(end,1),temporal=today<start?'future':today<endEx?'current':'past';arr.push({date:start,endExclusive:endEx,iso:isoDate(start),label:dm(start),temporal,exigible:today>=start,vencido:today>=endEx})}
+  return arr
+}
+function matrixStateInfo(rec,prog,progPast,current,meta,started){
+  if(meta<=0)return{key:'sin',label:'Sin compromiso'};
+  if(started<=0)return{key:'proximo',label:'Sin iniciar'};
+  const df=rec-prog,dp=rec-progPast;if(df>.009)return{key:'adelantado',label:'Adelantado'};if(df>=-.009)return{key:'corriente',label:'Al corriente'};if(dp>=-.009)return{key:'corriente',label:'Corte actual'};if(current>0)return{key:'parcial',label:'Parcial'};return{key:'pendiente',label:'Pendiente'}
+}
+function matrixBuild(){
+  const c=matrixCycle();if(!c)return{cycle:null,rows:[],periods:[]};
+  const prom=normalizeProm(state.promises[c.id]||{}),list=(state.matrix.freq==='quincenal'?prom.quincenal:prom.semanal).slice().sort((a,b)=>(a.orden||0)-(b.orden||0)),movs=matrixMovements(c),periods=matrixPeriods(c,movs,state.matrix.freq),due=periods.filter(p=>p.exigible),past=periods.filter(p=>p.vencido),cur=periods.findIndex(p=>p.temporal==='current'),manual=matrixManualCycle(c.id);
+  const rows=list.map(p=>{
+    const real=periods.map(()=>0),man=periods.map(()=>0);
+    movs.filter(m=>(m.aportante||'').trim()===p.nombre&&m.frecuencia!=='extra'&&(!m.frecuencia||m.frecuencia===state.matrix.freq)).forEach(m=>{const d=parseDate(m.fecha);if(!d)return;const i=periods.findIndex(per=>d>=per.date&&d<per.endExclusive);if(i>=0)real[i]+=Number(m.monto||0)});
+    periods.forEach((per,i)=>{const r=manual[state.matrix.freq]?.[p.nombre]?.[per.iso];if(r)man[i]=Number(r.monto||0)});
+    const vals=real.map((v,i)=>v+man[i]),received=vals.reduce((s,n)=>s+n,0),promise=Number(p.promesa||0),meta=promise*periods.length,prog=promise*due.length,progPast=promise*past.length,current=cur>=0?vals[cur]||0:0,status=matrixStateInfo(received,prog,progPast,current,meta,due.length);
+    return{...p,vals,real,man,received,promise,meta,prog,diff:received-prog,current,status}
+  });
+  return{cycle:c,rows,periods,movs}
+}
+function matrixFiltered(rows){if(state.matrix.filter==='corriente')return rows.filter(r=>['corriente','adelantado'].includes(r.status.key));if(state.matrix.filter==='pendientes')return rows.filter(r=>['pendiente','parcial'].includes(r.status.key));if(state.matrix.filter==='adelantados')return rows.filter(r=>r.status.key==='adelantado');return rows}
+function renderMatrix(){
+  if(!state.matrix.cycleId)state.matrix.cycleId=state.activeCycleId;
+  $('matrixCycle').innerHTML=state.cycles.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}${String(c.estado).toLowerCase()==='cerrado'?' — Cerrado':''}</option>`).join('')||'<option value="">Sin ciclos</option>';$('matrixCycle').value=state.matrix.cycleId||'';
+  $('matrixSegWeekly').classList.toggle('active',state.matrix.freq==='semanal');$('matrixSegBiweekly').classList.toggle('active',state.matrix.freq==='quincenal');
+  ['todos','corriente','pendientes','adelantados'].forEach(f=>$('mf-'+f).classList.toggle('active',state.matrix.filter===f));
+  const data=matrixBuild();state.matrix.lastData=data;
+  if(!data.cycle){$('matrixEmpty').style.display='block';$('matrixEmpty').textContent='Crea o selecciona un ciclo misionero.';$('matrixTableWrap').innerHTML='';$('matrixSummary').innerHTML='';return}
+  $('matrixEmpty').style.display='none';
+  const all=data.rows,rows=matrixFiltered(all),meta=all.reduce((s,r)=>s+r.meta,0),prog=all.reduce((s,r)=>s+r.prog,0),rec=all.reduce((s,r)=>s+r.received,0),diff=rec-prog,pct=meta>0?Math.round(rec/meta*100):0,current=all.filter(r=>['corriente','adelantado'].includes(r.status.key)).length,pending=all.filter(r=>['pendiente','parcial'].includes(r.status.key)).length;
+  $('matrixSummary').innerHTML=[
+    ['Meta del ciclo',money(meta)],['Programado a la fecha',money(prog)],['Recibido',money(rec)],['Diferencia',money(diff)],['Avance',pct+'%'],['Al corriente',current],['Pendientes',pending],['Cortes',data.periods.filter(p=>p.exigible).length+' de '+data.periods.length]
+  ].map(x=>`<div class="matrix-kpi"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join('');
+  const hist=isHistoricalCycle(data.cycle);if(!hist)state.matrix.historical=false;$('matrixHistBtn').style.display=hist?'':'none';$('matrixHistBtn').classList.toggle('btn-primary',state.matrix.historical);$('matrixHistNotice').classList.toggle('show',hist&&state.matrix.historical);$('matrixHistNotice').innerHTML=hist&&state.matrix.historical?`<b>Captura histórica activa.</b> Clic en una celda para colocar el compromiso; doble clic para escribir otra cantidad. Solo afecta la Matriz General.`:'';
+  const heads=data.periods.map(p=>`<th title="${p.temporal==='future'?'Futuro':p.temporal==='current'?'Corte actual':'Cerrado'}">${p.label}</th>`).join('');
+  const body=rows.map(r=>{
+    const cells=r.vals.map((v,i)=>{const per=data.periods[i],real=r.real[i]||0,man=r.man[i]||0;let cls=man>0&&real>0?'real-manual':man>0?'manual':v>0&&Math.abs(v-r.promise)<.01?'ok':v>0?'warn':per.temporal==='future'?'future':per.temporal==='current'?'current':'bad';const click=state.matrix.historical?`onclick="matrixCellClick(this)" ondblclick="matrixCellDblClick(this)" data-name="${encodeURIComponent(r.nombre)}" data-iso="${per.iso}" data-promise="${r.promise}" data-manual="${man}" data-real="${real}"`:'';return`<td class="mcell ${cls}" ${click}>${v>0?money(v).replace('$','').replace('MXN','').trim():'—'}</td>`}).join('');
+    const chip=r.status.key==='adelantado'?'amber':['corriente'].includes(r.status.key)?'green':r.status.key==='proximo'?'gray':'amber';
+    return`<tr><td><span class="matrix-name">${esc(r.nombre)}</span></td><td>${money(r.promise).replace('$','').replace('MXN','').trim()}</td>${cells}<td><b>${money(r.received).replace('$','').replace('MXN','').trim()}</b></td><td>${money(r.meta).replace('$','').replace('MXN','').trim()}</td><td>${money(r.prog).replace('$','').replace('MXN','').trim()}</td><td class="${r.diff<0?'diff-neg':'diff-pos'}">${money(r.diff).replace('$','').replace('MXN','').trim()}</td><td><span class="chip ${chip}">${r.status.label}</span></td></tr>`
+  }).join('');
+  $('matrixTableWrap').innerHTML=rows.length?`<table class="matrix-table"><thead><tr><th>Hermano/a</th><th>Comp.</th>${heads}<th>Total recibido</th><th>Meta ciclo</th><th>Prog. fecha</th><th>Dif.</th><th>Estado</th></tr></thead><tbody>${body}</tbody></table>`:'<div class="empty">Sin datos para este filtro.</div>';
+}
+window.matrixCycleChanged=id=>{state.matrix.cycleId=id;state.activeCycleId=id;state.capture.cycleId=id;localStorage.setItem(K_ACTIVE,id);renderAll()}
+window.setMatrixFreq=f=>{state.matrix.freq=f==='quincenal'?'quincenal':'semanal';renderMatrix()}
+window.setMatrixFilter=f=>{state.matrix.filter=f;renderMatrix()}
+window.toggleHistoricalMode=()=>{const c=matrixCycle();if(!isHistoricalCycle(c))return toast('La captura histórica solo está habilitada para 2025-2026');state.matrix.historical=!state.matrix.historical;renderMatrix()}
+async function saveManualCell(cycleId,freq,name,iso,rec){
+  const local=state.manualMatrix[cycleId]||{cicloId:cycleId,semanal:{},quincenal:{}};local.semanal=local.semanal||{};local.quincenal=local.quincenal||{};local[freq]=local[freq]||{};local[freq][name]=local[freq][name]||{};
+  if(!rec||!(Number(rec.monto)>0)){delete local[freq][name][iso];if(!Object.keys(local[freq][name]).length)delete local[freq][name]}else local[freq][name][iso]={...rec,updatedAt:new Date().toISOString()};
+  local.updatedAt=new Date().toISOString();state.manualMatrix[cycleId]=local;localStorage.setItem(K_MAT,JSON.stringify(state.manualMatrix));
+  const key=[cycleId,freq,encodeURIComponent(name),iso].join('|'),pend=parse(K_MAT_PENDING,{});pend[key]={cicloId,freq,nombre:name,iso,rec,updatedAt:new Date().toISOString()};localStorage.setItem(K_MAT_PENDING,JSON.stringify(pend));
+  try{
+    const ref=doc(db,COL_MAT,cycleId),snap=await getDoc(ref),cloud=snap.exists()?clone(snap.data()?.data||{}):{cicloId,semanal:{},quincenal:{}};cloud.cicloId=cycleId;cloud.semanal=cloud.semanal||{};cloud.quincenal=cloud.quincenal||{};cloud[freq]=cloud[freq]||{};cloud[freq][name]=cloud[freq][name]||{};
+    if(!rec||!(Number(rec.monto)>0)){delete cloud[freq][name][iso];if(!Object.keys(cloud[freq][name]).length)delete cloud[freq][name]}else cloud[freq][name][iso]={...rec,updatedAt:new Date().toISOString()};
+    cloud.updatedAt=new Date().toISOString();await setDoc(ref,{id:cycleId,cicloId:cycleId,data:cloud,updatedAt:cloud.updatedAt});delete pend[key];localStorage.setItem(K_MAT_PENDING,JSON.stringify(pend));setSync(true,'Matriz sincronizada')
+  }catch{setSync(false,'Matriz con cambios pendientes')}
+}
+window.matrixCellClick=el=>{
+  if(!state.matrix.historical)return;if(state.matrix.clickTimer)clearTimeout(state.matrix.clickTimer);
+  state.matrix.clickTimer=setTimeout(async()=>{state.matrix.clickTimer=null;const c=matrixCycle(),name=decodeURIComponent(el.dataset.name||''),iso=el.dataset.iso,promise=Number(el.dataset.promise||0),manual=Number(el.dataset.manual||0);if(manual>0){if(!confirm('¿Borrar la captura histórica de esta celda?'))return;await saveManualCell(c.id,state.matrix.freq,name,iso,null)}else await saveManualCell(c.id,state.matrix.freq,name,iso,{monto:promise,promesa:promise,fecha:iso,nombre:name,frecuencia:state.matrix.freq,tipo:'historico-visual'});renderMatrix()},220)
+}
+window.matrixCellDblClick=async el=>{
+  if(!state.matrix.historical)return;if(state.matrix.clickTimer){clearTimeout(state.matrix.clickTimer);state.matrix.clickTimer=null}
+  const c=matrixCycle(),name=decodeURIComponent(el.dataset.name||''),iso=el.dataset.iso,promise=Number(el.dataset.promise||0),manual=Number(el.dataset.manual||0),real=Number(el.dataset.real||0),suggest=manual||real||promise;
+  const resp=prompt(`Cantidad histórica para ${name} en ${iso}\nEscribe 0 para borrar.`,String(suggest||''));if(resp===null)return;const val=Number(String(resp).replace(/[$,\s]/g,''))||0;await saveManualCell(c.id,state.matrix.freq,name,iso,val>0?{monto:val,promesa:promise,fecha:iso,nombre:name,frecuencia:state.matrix.freq,tipo:'historico-visual'}:null);renderMatrix()
+}
+window.exportMatrixCSV=()=>{
+  const d=state.matrix.lastData||matrixBuild();if(!d.cycle||!d.rows.length)return toast('No hay datos para exportar');const rows=matrixFiltered(d.rows),head=['Hermano/a','Compromiso',...d.periods.map(p=>p.label),'Total recibido','Meta del ciclo','Programado a la fecha','Diferencia','Estado'];const lines=[head,...rows.map(r=>[r.nombre,r.promise,...r.vals,r.received,r.meta,r.prog,r.diff,r.status.label])];const csv='\uFEFF'+lines.map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='matriz_general_'+String(d.cycle.nombre).replace(/[^a-z0-9]+/gi,'_').toLowerCase()+'_'+state.matrix.freq+'_'+todayISO()+'.csv';a.click();URL.revokeObjectURL(a.href);toast('Matriz exportada')
+}
+
+function renderAll(){renderSummary();renderCycles();renderPromises();renderCapture(false);renderMatrix();lucide.createIcons()}
+function setSync(ok,msg){$('liveText').textContent=msg;$('syncSide').textContent=msg;document.querySelector('.live').style.background=ok?'var(--green-bg)':'var(--amber-bg)';document.querySelector('.live').style.color=ok?'#14744e':'#9b6508'}
+function mergeByUpdated(local,cloud){
+  const map=new Map();[...(local||[]),...(cloud||[])].forEach(x=>{
+    if(!x?.id)return;const cur=map.get(x.id);if(!cur){map.set(x.id,x);return}
+    const a=new Date(cur.updatedAt||cur.createdAt||0).getTime(),b=new Date(x.updatedAt||x.createdAt||0).getTime();if(b>=a)map.set(x.id,x);
+  });return [...map.values()];
+}
+async function start(){
+  configUI();loadLocal();loadCaptureDraft();renderAll();lucide.createIcons();
+  try{
+    const [cs,ps,ms,mats]=await Promise.all([getDocs(collection(db,COL_CYC)),getDocs(collection(db,COL_PROM)),getDocs(collection(db,COL_MOV)),getDocs(collection(db,COL_MAT))]);
+    const cloudCycles=[];cs.forEach(d=>cloudCycles.push(d.data()));
+    const deleted=new Set(parse(K_DEL,[]));state.cycles=mergeByUpdated(state.cycles,cloudCycles).filter(c=>!deleted.has(c.id));localStorage.setItem(K_CYC,JSON.stringify(state.cycles));
+    ps.forEach(d=>{const r=d.data();if(r?.cicloId&&r?.data){const local=state.promises[r.cicloId];const lt=new Date(local?.updatedAt||0).getTime(),ct=new Date(r.data.updatedAt||r.updatedAt||0).getTime();if(!local||ct>=lt)state.promises[r.cicloId]=r.data}});
+    localStorage.setItem(K_PROM,JSON.stringify(state.promises));
+    const cloudMov=[];ms.forEach(d=>cloudMov.push(d.data()));const movMap=new Map(state.movements.map(m=>[m.id,m]));cloudMov.forEach(m=>movMap.set(m.id,m));state.movements=[...movMap.values()];localStorage.setItem(K_MOV,JSON.stringify(state.movements));
+    mats.forEach(d=>{const r=d.data();if(r?.cicloId&&r?.data)state.manualMatrix[r.cicloId]=matrixMergeData(state.manualMatrix[r.cicloId]||{},r.data)});localStorage.setItem(K_MAT,JSON.stringify(state.manualMatrix));
+    if(!state.activeCycleId||!state.cycles.some(c=>c.id===state.activeCycleId)){state.activeCycleId=state.cycles.find(c=>c.estado==='activo')?.id||state.cycles[0]?.id||null;if(state.activeCycleId)localStorage.setItem(K_ACTIVE,state.activeCycleId)}
+    state.capture.cycleId=state.activeCycleId;state.matrix.cycleId=state.activeCycleId;loadCaptureDraft();
+    renderAll();setSync(true,'Sincronizado en tiempo real');
+  }catch(e){setSync(false,'Datos locales · Firebase no disponible')}
+
+  onSnapshot(collection(db,COL_CYC),snap=>{
+    const cloud=[];snap.forEach(d=>cloud.push(d.data()));const deleted=new Set(parse(K_DEL,[]));state.cycles=mergeByUpdated(state.cycles,cloud).filter(c=>!deleted.has(c.id));localStorage.setItem(K_CYC,JSON.stringify(state.cycles));renderAll();setSync(true,'Sincronizado en tiempo real')
+  },()=>setSync(false,'Error de sincronización de ciclos'));
+
+  onSnapshot(collection(db,COL_PROM),snap=>{
+    snap.docChanges().forEach(ch=>{const r=ch.doc.data();const id=r?.cicloId||ch.doc.id;if(ch.type==='removed')delete state.promises[id];else if(r?.data)state.promises[id]=r.data});
+    localStorage.setItem(K_PROM,JSON.stringify(state.promises));renderAll();setSync(true,'Sincronizado en tiempo real')
+  },()=>setSync(false,'Error de sincronización de promesas'));
+
+  onSnapshot(collection(db,COL_MOV),snap=>{
+    const cloud=[];snap.forEach(d=>cloud.push(d.data()));const map=new Map(state.movements.map(m=>[m.id,m]));cloud.forEach(m=>map.set(m.id,m));state.movements=[...map.values()];localStorage.setItem(K_MOV,JSON.stringify(state.movements));renderSummary();renderMatrix()
+  });
+
+  onSnapshot(collection(db,COL_MAT),snap=>{
+    snap.forEach(d=>{const r=d.data();if(r?.cicloId&&r?.data)state.manualMatrix[r.cicloId]=matrixMergeData(state.manualMatrix[r.cicloId]||{},r.data)});
+    localStorage.setItem(K_MAT,JSON.stringify(state.manualMatrix));renderMatrix();setSync(true,'Sincronizado en tiempo real')
+  },()=>setSync(false,'Error de sincronización de matriz'));
+}
+$('globalSearch').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();if(!q)return;
+  const cyc=state.cycles.find(c=>String(c.nombre).toLowerCase().includes(q));if(cyc){window.goTab('ciclos');return}
+  const p=Object.entries(state.promises).flatMap(([cid,d])=>[...(d.semanal||[]),...(d.quincenal||[])].map(x=>({...x,cid}))).find(x=>String(x.nombre).toLowerCase().includes(q));
+  if(p){state.activeCycleId=p.cid;localStorage.setItem(K_ACTIVE,p.cid);window.goTab('promesas');renderAll()}
+});
+start();
+</script>
+</body>
+</html>
