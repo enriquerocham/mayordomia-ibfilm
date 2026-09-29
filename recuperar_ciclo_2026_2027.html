@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recuperar ciclo 2026-2027 · Mayordomía IBFILM</title>
+<style>
+:root{--nav:#0b1b33;--gold:#e7ad32;--bg:#f4f6f9;--text:#101828;--muted:#667085;--line:#e5e9f0;--green:#178657;--red:#b83f49}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);min-height:100vh;display:grid;place-items:center;padding:24px}
+.card{width:min(720px,100%);background:#fff;border:1px solid var(--line);border-radius:24px;padding:26px;box-shadow:0 22px 60px rgba(16,24,40,.10)}
+.logo{width:50px;height:50px;border-radius:15px;background:linear-gradient(145deg,#f6d17b,#d49a24);display:grid;place-items:center;font-size:22px;margin-bottom:18px}
+h1{margin:0;font-size:28px;letter-spacing:-.04em}p{color:var(--muted);line-height:1.6}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.box{background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:13px}.box span{display:block;font-size:11px;color:var(--muted)}.box b{display:block;margin-top:5px;font-size:16px}
+.notice{border-radius:15px;padding:12px 14px;background:#fff7e8;border:1px solid #f1d08a;color:#805708;font-size:13px;line-height:1.5;margin:14px 0}
+button{width:100%;border:0;border-radius:14px;padding:13px 16px;background:linear-gradient(135deg,#f2c45e,#dfa126);color:#12243d;font-weight:800;font-size:15px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}#status{margin-top:14px;padding:12px 14px;border-radius:14px;background:#f7f9fc;border:1px solid var(--line);font-size:13px;line-height:1.5}
+.ok{color:var(--green)}.bad{color:var(--red)}.muted{color:var(--muted)}a{color:#a96806;font-weight:700}
+@media(max-width:650px){.summary{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">✦</div>
+  <h1>Recuperar ciclo 2026–2027</h1>
+  <p>Utilidad dirigida para restaurar únicamente la definición original del ciclo y sus promesas. <b>No modifica ni reemplaza movimientos, miembros, egresos ni otros ciclos.</b></p>
+  <div class="summary">
+    <div class="box"><span>Ciclo original</span><b>2026–2027</b></div>
+    <div class="box"><span>Promesas semanales</span><b>20</b></div>
+    <div class="box"><span>Promesas quincenales</span><b>11</b></div>
+  </div>
+  <div class="notice">La utilidad también elimina la marca local de “ciclo eliminado” para el ID original <code>msbevz49nnkcxq17k4q</code>. Si detecta otro ciclo llamado 2026–2027 con un ID diferente, se detendrá sin cambiar nada para evitar duplicados.</div>
+  <button id="restoreBtn">Restaurar ciclo original y promesas</button>
+  <div id="status" class="muted">Aún no se ha realizado ningún cambio.</div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
+  authDomain: "mayordomia-ibfilm.firebaseapp.com",
+  projectId: "mayordomia-ibfilm",
+  storageBucket: "mayordomia-ibfilm.firebasestorage.app",
+  messagingSenderId: "460839237215",
+  appId: "1:460839237215:web:82418bf1627eb9c40a8dea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const cycle = {"createdAt": "2026-08-02T06:20:49.929Z", "fin": "2027-08-08", "nombre": "2026-2027", "id": "msbevz49nnkcxq17k4q", "updatedAt": "2026-08-03T00:26:59.121Z", "estado": "activo", "inicio": "2026-08-09"};
+const promises = {"semanal": [{"id": "p_semanal_mary_rn2au", "nombre": "Mary", "promesa": 250, "freq": "Semanal", "estatus": "Activo", "orden": 1, "obs": ""}, {"id": "p_semanal_brenda_tkxbo", "nombre": "Brenda", "promesa": 100, "freq": "Semanal", "estatus": "Activo", "orden": 2, "obs": ""}, {"id": "p_semanal_leila_mcgjq", "nombre": "Leila", "promesa": 50, "freq": "Semanal", "estatus": "Activo", "orden": 3, "obs": ""}, {"id": "p_semanal_isai_odrjt", "nombre": "Isaí", "promesa": 50, "freq": "Semanal", "estatus": "Activo", "orden": 4, "obs": ""}, {"id": "p_semanal_junior_z9gp4", "nombre": "Junior", "promesa": 150, "freq": "Semanal", "estatus": "Activo", "orden": 5, "obs": ""}, {"id": "p_semanal_jazive_i1id4", "nombre": "Jazive", "promesa": 100, "freq": "Semanal", "estatus": "Activo", "orden": 6, "obs": ""}, {"id": "p_semanal_santos_vz409", "nombre": "Santos", "promesa": 200, "freq": "Semanal", "estatus": "Activo", "orden": 7, "obs": ""}, {"id": "p_semanal_cresencio_uztg5", "nombre": "Cresencio", "promesa": 120, "freq": "Semanal", "estatus": "Activo", "orden": 8, "obs": ""}, {"id": "p_semanal_martha_2mf8u", "nombre": "Martha", "promesa": 250, "freq": "Semanal", "estatus": "Activo", "orden": 9, "obs": ""}, {"id": "p_semanal_yareli_uqe9f", "nombre": "Yareli", "promesa": 200, "freq": "Semanal", "estatus": "Activo", "orden": 10, "obs": ""}, {"id": "p_semanal_robert_vopti", "nombre": "Robert", "promesa": 160, "freq": "Semanal", "estatus": "Activo", "orden": 11, "obs": ""}, {"id": "p_semanal_veronica_n45pp", "nombre": "Verónica", "promesa": 160, "freq": "Semanal", "estatus": "Activo", "orden": 12, "obs": ""}, {"id": "p_semanal_daniel_mw424", "nombre": "Daniel", "promesa": 100, "freq": "Semanal", "estatus": "Activo", "orden": 13, "obs": ""}, {"id": "p_semanal_maximina_psnah", "nombre": "Maximina", "promesa": 220, "freq": "Semanal", "estatus": "Activo", "orden": 14, "obs": ""}, {"id": "p_semanal_guillermo_hpl8a", "nombre": "Guillermo", "promesa": 200, "freq": "Semanal", "estatus": "Activo", "orden": 15, "obs": ""}, {"id": "p_semanal_lourdes_y4prh", "nombre": "Lourdes", "promesa": 50, "freq": "Semanal", "estatus": "Activo", "orden": 16, "obs": ""}, {"id": "p_semanal_martha_m_k5m4e", "nombre": "Martha M.", "promesa": 100, "freq": "Semanal", "estatus": "Activo", "orden": 17, "obs": ""}, {"id": "p_semanal_miranda_y44a3", "nombre": "Miranda", "promesa": 30, "freq": "Semanal", "estatus": "Activo", "orden": 18, "obs": ""}, {"id": "p_semanal_elias_peqp7", "nombre": "Elías", "promesa": 20, "freq": "Semanal", "estatus": "Activo", "orden": 19, "obs": ""}, {"id": "p_semanal_eddy_j48i7", "nombre": "Eddy", "promesa": 50, "freq": "Semanal", "estatus": "Activo", "orden": 20, "obs": ""}], "quincenal": [{"id": "p_quincenal_pr_moises_7diss", "nombre": "Pr. Moisés", "promesa": 700, "freq": "Quincenal", "estatus": "Activo", "orden": 1, "obs": ""}, {"id": "p_quincenal_yaretzi_mykdh", "nombre": "Yaretzi", "promesa": 350, "freq": "Quincenal", "estatus": "Activo", "orden": 2, "obs": ""}, {"id": "p_quincenal_enrique_jciqs", "nombre": "Enrique", "promesa": 250, "freq": "Quincenal", "estatus": "Activo", "orden": 3, "obs": ""}, {"id": "p_quincenal_fernanda_8aao1", "nombre": "Fernanda", "promesa": 200, "freq": "Quincenal", "estatus": "Activo", "orden": 5, "obs": ""}, {"id": "p_quincenal_sofia_cbh6g", "nombre": "Sofía", "promesa": 100, "freq": "Quincenal", "estatus": "Activo", "orden": 6, "obs": ""}, {"id": "p_quincenal_roberto_i04a0", "nombre": "Roberto", "promesa": 60, "freq": "Quincenal", "estatus": "Activo", "orden": 7, "obs": ""}, {"id": "p_quincenal_josue_9lr0c", "nombre": "Josué", "promesa": 300, "freq": "Quincenal", "estatus": "Activo", "orden": 8, "obs": ""}, {"id": "p_quincenal_javier_rxsni", "nombre": "Javier", "promesa": 150, "freq": "Quincenal", "estatus": "Activo", "orden": 9, "obs": ""}, {"id": "p_quincenal_daniela_2ivh0", "nombre": "Daniela", "promesa": 150, "freq": "Quincenal", "estatus": "Activo", "orden": 10, "obs": ""}, {"id": "p_quincenal_juanita_k7lil", "nombre": "Juanita", "promesa": 125, "freq": "Quincenal", "estatus": "Activo", "orden": 11, "obs": ""}, {"id": "p_quincenal_elisa_naai6", "nombre": "Elisa", "promesa": 250, "freq": "Quincenal", "estatus": "Activo", "orden": 12, "obs": ""}], "updatedAt": "2026-08-03T01:08:49.152Z"};
+const cycleId = cycle.id;
+const status = document.getElementById('status');
+const btn = document.getElementById('restoreBtn');
+
+function readJSON(k, fallback) {
+  try { return JSON.parse(localStorage.getItem(k) || JSON.stringify(fallback)); }
+  catch { return fallback; }
+}
+function setStatus(msg, cls='muted') {
+  status.className = cls;
+  status.innerHTML = msg;
+}
+
+btn.addEventListener('click', async () => {
+  btn.disabled = true;
+  setStatus('Verificando que no exista un ciclo duplicado…');
+  try {
+    const localCycles = readJSON('ibfilm_om_ciclos_v1', []);
+    const localDuplicate = localCycles.find(c => c && c.nombre === '2026-2027' && c.id !== cycleId);
+    if (localDuplicate) {
+      setStatus('Se detectó otro ciclo local llamado <b>2026–2027</b> con un ID diferente. No se hizo ningún cambio. Vuelve a ChatGPT para reconciliar ambos ciclos de forma segura.', 'bad');
+      btn.disabled = false;
+      return;
+    }
+
+    const snap = await getDocs(collection(db, 'om_ciclos'));
+    let cloudDuplicate = null;
+    snap.forEach(d => {
+      const c = d.data();
+      if (c && c.nombre === '2026-2027' && c.id !== cycleId) cloudDuplicate = c;
+    });
+    if (cloudDuplicate) {
+      setStatus('Se detectó otro ciclo 2026–2027 en Firebase con un ID diferente. No se hizo ningún cambio. Vuelve a ChatGPT para reconciliar ambos ciclos.', 'bad');
+      btn.disabled = false;
+      return;
+    }
+
+    // 1) Quitar la marca de eliminado local del ciclo original.
+    const deleted = readJSON('ibfilm_deleted_om', []);
+    localStorage.setItem('ibfilm_deleted_om', JSON.stringify(deleted.filter(id => id !== cycleId)));
+
+    // 2) Restaurar ciclo sin tocar los demás.
+    const cycles = readJSON('ibfilm_om_ciclos_v1', []);
+    const ci = cycles.findIndex(c => c && c.id === cycleId);
+    if (ci >= 0) cycles[ci] = cycle;
+    else cycles.push(cycle);
+    localStorage.setItem('ibfilm_om_ciclos_v1', JSON.stringify(cycles));
+
+    // 3) Restaurar únicamente las promesas de este ciclo.
+    const allProm = readJSON('ibfilm_om_promesas_v1', {});
+    allProm[cycleId] = promises;
+    localStorage.setItem('ibfilm_om_promesas_v1', JSON.stringify(allProm));
+    localStorage.setItem('ibfilm_v3_active_cycle', cycleId);
+
+    // 4) Restaurar en Firebase. No se tocan movimientos.
+    await setDoc(doc(db, 'om_ciclos', cycleId), cycle);
+    await setDoc(doc(db, 'om_promesas', cycleId), {
+      id: cycleId,
+      cicloId: cycleId,
+      data: promises,
+      updatedAt: promises.updatedAt || new Date().toISOString()
+    });
+
+    setStatus('✓ Ciclo 2026–2027 y sus promesas fueron restaurados. <b>No se modificó ningún movimiento.</b><br><br>Ahora vuelve a la aplicación oficial y realiza una recarga forzada con <b>Ctrl + F5</b>.', 'ok');
+  } catch (e) {
+    setStatus('No se pudo completar la restauración: ' + (e.code || e.message || e), 'bad');
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
