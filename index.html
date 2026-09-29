@@ -5801,12 +5801,36 @@ function promExportCSV() {
       }
     }
 
+    // Convierte errores reales de Firebase en mensajes útiles.
+    function firebaseErrorLabel(e) {
+      if (!navigator.onLine) return 'Sin conexión — guardado local';
+      const code = String((e && e.code) || '').replace(/^firestore\//, '');
+      const labels = {
+        'permission-denied': 'Permiso denegado por Firestore',
+        'unavailable': 'Servicio de Firebase no disponible',
+        'deadline-exceeded': 'Firebase tardó demasiado en responder',
+        'resource-exhausted': 'Límite de Firebase alcanzado',
+        'failed-precondition': 'Operación no disponible en este momento',
+        'invalid-argument': 'Dato no válido enviado a Firebase',
+        'unauthenticated': 'Se requiere iniciar sesión'
+      };
+      if (labels[code]) return labels[code];
+      if (code) return 'Firebase: ' + code;
+      return (e && e.message) ? 'Firebase: ' + e.message : 'Error de Firebase';
+    }
+
+    function reportFirebaseError(e, action) {
+      const msg = firebaseErrorLabel(e);
+      setSyncStatus(false, action ? action + ': ' + msg : msg);
+      console.error('[Mayordomía/Firebase]', action || 'operación', e);
+    }
+
     // ── GUARDAR movimiento en Firestore ──
     window.fbSaveMov = async function(m) {
       try {
         await setDoc(doc(db, COL_MOV, m.id), m);
         setSyncStatus(true, 'Sincronizado');
-      } catch(e) { setSyncStatus(false, 'Sin conexión — guardado local'); }
+      } catch(e) { reportFirebaseError(e, 'Guardar movimiento'); }
     };
 
     // ── ELIMINAR movimiento ──
@@ -5816,7 +5840,10 @@ function promExportCSV() {
 
     // ── GUARDAR miembro ──
     window.fbSaveMem = async function(m) {
-      try { await setDoc(doc(db, COL_MEM, m.id), m); } catch(e) {}
+      try {
+        await setDoc(doc(db, COL_MEM, m.id), m);
+        setSyncStatus(true, 'Sincronizado');
+      } catch(e) { reportFirebaseError(e, 'Guardar miembro'); }
     };
 
     // ── ELIMINAR miembro ──
@@ -5826,7 +5853,10 @@ function promExportCSV() {
 
     // ── GUARDAR evento ──
     window.fbSaveEv = async function(ev) {
-      try { await setDoc(doc(db, COL_EV, ev.id), ev); } catch(e) {}
+      try {
+        await setDoc(doc(db, COL_EV, ev.id), ev);
+        setSyncStatus(true, 'Sincronizado');
+      } catch(e) { reportFirebaseError(e, 'Guardar promesa'); }
     };
 
     // ── ELIMINAR evento ──
@@ -5839,7 +5869,7 @@ function promExportCSV() {
       try {
         await setDoc(doc(db, COL_OM, ciclo.id), ciclo);
         setSyncStatus(true, 'Sincronizado');
-      } catch(e) { setSyncStatus(false, 'Sin conexión — guardado local'); }
+      } catch(e) { reportFirebaseError(e, 'Guardar ciclo misionero'); }
     };
 
     // ── ELIMINAR ciclo misionero ──
@@ -5858,7 +5888,7 @@ function promExportCSV() {
           updatedAt: (data && data.updatedAt) || new Date().toISOString()
         });
         setSyncStatus(true, 'Sincronizado');
-      } catch(e) { setSyncStatus(false, 'Sin conexión — guardado local'); }
+      } catch(e) { reportFirebaseError(e, 'Guardar promesas misioneras'); }
     };
 
     // ── ELIMINAR promesas misioneras por ciclo ──
@@ -6034,6 +6064,158 @@ function promExportCSV() {
       });
     }
 
+    // ── SINCRONIZACIÓN EN TIEMPO REAL ──
+    // Mantiene actualizadas las colecciones principales sin recargar la app.
+    // La primera instantánea respeta lo que ya resolvió syncFromCloud(); a partir
+    // de ahí, cambios añadidos/modificados/eliminados se aplican inmediatamente.
+    const realtimeState = {};
+    const realtimeUnsubs = [];
+
+    function safeLocalJSON(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+      catch(e) { return fallback; }
+    }
+
+    function syncChannel(name, ok, err) {
+      realtimeState[name] = { ok: !!ok, err: err || null };
+      if (!navigator.onLine) {
+        setSyncStatus(false, 'Sin conexión — trabajando localmente');
+        return;
+      }
+      const failed = Object.entries(realtimeState).find(([,v]) => v && v.ok === false);
+      if (failed) {
+        const [channel, state] = failed;
+        setSyncStatus(false, channel + ': ' + firebaseErrorLabel(state.err));
+      } else {
+        setSyncStatus(true, 'Sincronizado en tiempo real');
+      }
+    }
+
+    function isPageActive(id) {
+      const el = document.getElementById(id);
+      return !!(el && el.classList.contains('active'));
+    }
+
+    function refreshRealtimeUI(kind) {
+      try {
+        if (kind === 'movimientos') {
+          if (typeof updateHeaderStats === 'function') updateHeaderStats();
+          if (isPageActive('pg-movimientos') && typeof renderMov === 'function') renderMov();
+          if (isPageActive('pg-rep-diario') && typeof initRepDiario === 'function') initRepDiario();
+          if (isPageActive('pg-reportes') && typeof initRepGeneral === 'function') initRepGeneral();
+        } else if (kind === 'miembros') {
+          if (isPageActive('pg-miembros') && typeof renderMembers === 'function') renderMembers();
+        } else if (kind === 'eventos') {
+          if (isPageActive('pg-promesas') && typeof renderPromLista === 'function') renderPromLista();
+        } else if (kind === 'om_ciclos') {
+          if (isPageActive('pg-colecta-ciclos') && typeof omRenderCiclos === 'function') omRenderCiclos();
+        }
+      } catch(e) {
+        console.warn('[Mayordomía] No se pudo refrescar la vista tras sincronizar', kind, e);
+      }
+    }
+
+    function startArrayRealtime(collectionName, storageKey, deletedKey, uiKind) {
+      let initial = true;
+      const unsub = onSnapshot(collection(db, collectionName), snap => {
+        let local = safeLocalJSON(storageKey, []);
+        if (!Array.isArray(local)) local = [];
+        const deleted = deletedKey ? safeLocalJSON(deletedKey, []) : [];
+        const deletedSet = new Set(Array.isArray(deleted) ? deleted : []);
+        let changed = false;
+
+        snap.docChanges().forEach(change => {
+          const rec = change.doc.data();
+          const id = (rec && rec.id) || change.doc.id;
+          if (!id) return;
+          const idx = local.findIndex(x => x && x.id === id);
+
+          if (change.type === 'removed') {
+            if (idx >= 0) {
+              local.splice(idx, 1);
+              changed = true;
+            }
+            return;
+          }
+
+          // Si este dispositivo marcó el registro como eliminado, no lo resucites.
+          if (deletedSet.has(id)) return;
+
+          // En la primera instantánea syncFromCloud() ya decidió los conflictos.
+          // Sólo incorporamos documentos que todavía no existan localmente.
+          if (initial && idx >= 0) return;
+
+          if (idx >= 0) local[idx] = rec;
+          else local.push(rec);
+          changed = true;
+        });
+
+        initial = false;
+        if (changed) {
+          localStorage.setItem(storageKey, JSON.stringify(local));
+          refreshRealtimeUI(uiKind);
+        }
+        syncChannel(collectionName, true);
+      }, err => {
+        syncChannel(collectionName, false, err);
+      });
+      realtimeUnsubs.push(unsub);
+    }
+
+    function startOMPromisesRealtime() {
+      let initial = true;
+      const unsub = onSnapshot(collection(db, COL_OM_PROM), snap => {
+        const local = safeLocalJSON('ibfilm_om_promesas_v1', {});
+        let changed = false;
+
+        snap.docChanges().forEach(change => {
+          const rec = change.doc.data() || {};
+          const cicloId = rec.cicloId || change.doc.id;
+          if (!cicloId) return;
+
+          if (change.type === 'removed') {
+            if (Object.prototype.hasOwnProperty.call(local, cicloId)) {
+              delete local[cicloId];
+              changed = true;
+            }
+            return;
+          }
+
+          const cloudData = rec.data || {};
+          const localData = local[cicloId];
+          if (initial && localData) return;
+
+          const cloudTime = new Date(cloudData.updatedAt || rec.updatedAt || 0).getTime();
+          const localTime = new Date((localData && localData.updatedAt) || 0).getTime();
+          if (!localData || !localTime || cloudTime >= localTime) {
+            local[cicloId] = cloudData;
+            changed = true;
+          }
+        });
+
+        initial = false;
+        if (changed) localStorage.setItem('ibfilm_om_promesas_v1', JSON.stringify(local));
+        syncChannel(COL_OM_PROM, true);
+      }, err => {
+        syncChannel(COL_OM_PROM, false, err);
+      });
+      realtimeUnsubs.push(unsub);
+    }
+
+    function startRealtimeSync() {
+      if (window.__ibfilmRealtimeStarted) return;
+      window.__ibfilmRealtimeStarted = true;
+
+      startArrayRealtime(COL_MOV, 'ibfilm_movimientos_v2', 'ibfilm_deleted_ids', 'movimientos');
+      startArrayRealtime(COL_MEM, 'ibfilm_miembros_v1', 'ibfilm_deleted_mem', 'miembros');
+      startArrayRealtime(COL_EV,  'ibfilm_promesas_v1', 'ibfilm_deleted_ev', 'eventos');
+      startArrayRealtime(COL_OM,  'ibfilm_om_ciclos_v1', 'ibfilm_deleted_om', 'om_ciclos');
+      startOMPromisesRealtime();
+      startMatManualRealtime();
+    }
+
+    window.fbStartRealtimeSync = startRealtimeSync;
+
     // ── SYNC INICIAL: bajar datos de Firestore a localStorage ──
     async function syncFromCloud() {
       setSyncStatus(true, 'Sincronizando...');
@@ -6166,7 +6348,7 @@ function promExportCSV() {
         // Refrescar la vista actual
         if (typeof renderDash === 'function') renderDash();
       } catch(e) {
-        setSyncStatus(false, 'Sin conexión — usando datos locales');
+        reportFirebaseError(e, 'Descargar datos');
       }
     }
 
@@ -6197,20 +6379,26 @@ function promExportCSV() {
         setSyncStatus(true, 'Datos subidos correctamente');
         if (typeof toast === 'function') toast('☁️ Datos sincronizados con Firebase');
       } catch(e) {
-        setSyncStatus(false, 'Error al subir: ' + e.message);
-        if (typeof toast === 'function') toast('⚠️ Sin conexión — datos guardados localmente', 'warn');
+        reportFirebaseError(e, 'Subir datos');
+        if (typeof toast === 'function') toast('⚠️ No se pudo subir a Firebase: ' + firebaseErrorLabel(e), 'warn');
       }
     };
 
     // ── Iniciar sincronización al cargar ──
     document.addEventListener('DOMContentLoaded', () => {
-      startMatManualRealtime();
-      setTimeout(syncFromCloud, 1500);
+      setTimeout(async () => {
+        await syncFromCloud();
+        startRealtimeSync();
+      }, 1500);
       setTimeout(() => { if (window.fbFlushMatManualPending) window.fbFlushMatManualPending(); }, 3500);
       setInterval(() => { if (navigator.onLine && window.fbFlushMatManualPending) window.fbFlushMatManualPending(); }, 15000);
     });
     window.addEventListener('online', () => {
       if (window.fbFlushMatManualPending) window.fbFlushMatManualPending();
+      setSyncStatus(true, 'Reconectando…');
+    });
+    window.addEventListener('offline', () => {
+      setSyncStatus(false, 'Sin conexión — trabajando localmente');
     });
   </script>
 
