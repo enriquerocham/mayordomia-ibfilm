@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mayordomía IBFILM 3.0 · Ofrenda Misionera</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --bg:#f6f8fb;--surface:#fff;--surface-2:#f9fbfd;--text:#101828;--muted:#667085;
+  --line:#e6eaf0;--nav:#0b1b31;--nav2:#112846;--gold:#eca814;--gold2:#f7c451;
+  --green:#16a36a;--green-bg:#eaf8f1;--amber:#c47a09;--amber-bg:#fff4df;
+  --red:#c33d45;--red-bg:#fff0f1;--blue:#3d67a4;--blue-bg:#edf4ff;
+  --shadow:0 12px 32px rgba(16,24,40,.055);--radius:20px
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.app{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:100vh}
+.sidebar{height:100vh;position:sticky;top:0;background:linear-gradient(180deg,var(--nav),#091525);color:#fff;padding:24px 16px}
+.brand{display:flex;align-items:center;gap:12px;padding:3px 7px 24px}
+.logo{width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,var(--gold2),#c98c15);display:grid;place-items:center;color:#0b1b31}
+.logo svg{width:25px;height:25px}
+.brand-name{font-weight:800;font-size:15px}.brand-sub{font-size:11px;color:#adbacb;margin-top:3px}
+.menu{display:flex;flex-direction:column;gap:4px}
+.menu button{border:0;background:transparent;color:#b8c3d3;padding:12px 13px;border-radius:13px;display:flex;gap:12px;align-items:center;text-align:left;font-weight:600;font-size:13px}
+.menu button:hover{background:rgba(255,255,255,.055);color:#fff}
+.menu button.active{color:#fff;background:linear-gradient(90deg,rgba(236,168,20,.35),rgba(236,168,20,.13));box-shadow:inset 3px 0 0 var(--gold2)}
+.menu svg{width:19px;height:19px}
+.side-footer{position:absolute;left:16px;right:16px;bottom:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:13px}
+.sync-side{display:flex;gap:8px;align-items:center;color:#9ce1bf;font-size:11px;font-weight:600}.sync-side .dot{width:7px;height:7px;border-radius:50%;background:#41c784}
+.sync-detail{color:#92a2b9;font-size:10px;margin-top:7px;line-height:1.4}
+.main{padding:20px 24px 40px;min-width:0}
+.topbar{height:70px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:16px;justify-content:space-between;padding:11px 16px}
+.search{flex:1;max-width:720px;display:flex;gap:10px;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:13px;padding:10px 13px}
+.search svg{width:18px;color:#8793a6}.search input{width:100%;border:0;background:transparent;outline:none;color:#344054}
+.profile{display:flex;align-items:center;gap:10px}.avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#10233f;color:#fff;font-size:12px;font-weight:800}
+.profile strong{display:block;font-size:13px}.profile small{font-size:11px;color:var(--muted)}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:22px 4px 6px}
+.pagehead h1{font-size:34px;letter-spacing:-.035em;margin:0}.pagehead p{margin:5px 0 0;color:var(--muted);font-size:14px}
+.live{display:flex;align-items:center;gap:7px;background:var(--green-bg);color:#14744e;padding:8px 12px;border-radius:999px;font-size:11px;font-weight:700}
+.live .dot{width:8px;height:8px;border-radius:50%;background:#22b573}
+.tabs{display:flex;gap:2px;overflow:auto;border-bottom:1px solid var(--line);margin:10px 0 18px}
+.tab{white-space:nowrap;border:0;background:transparent;color:#526177;padding:13px 15px;font-weight:700;font-size:13px;border-bottom:3px solid transparent}
+.tab.active{color:#c47b06;border-bottom-color:var(--gold)}
+.pane{display:none}.pane.active{display:block}
+.grid-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.kpi{display:flex;gap:13px;align-items:center;padding:18px}.kicon{width:47px;height:47px;border-radius:15px;background:#fff5e5;color:#d68d09;display:grid;place-items:center;flex:0 0 auto}
+.kicon svg{width:23px}.klabel{font-size:11px;color:var(--muted);font-weight:700}.kvalue{font-size:20px;font-weight:800;margin-top:3px;letter-spacing:-.02em}.ksub{font-size:10px;color:#98a2b3;margin-top:3px}
+.two{display:grid;grid-template-columns:1.45fr .75fr;gap:15px;margin-top:15px}
+.pad{padding:18px}.title{font-size:16px;font-weight:800}.subtitle{font-size:12px;color:var(--muted);margin-top:3px}
+.empty{padding:42px 20px;text-align:center;color:var(--muted)}
+.empty svg{width:42px;height:42px;color:#a7b2c2;margin-bottom:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:10px 13px;font-weight:750;font-size:12px}.btn-primary{background:linear-gradient(135deg,var(--gold2),#df9b14);color:#172137}.btn-dark{background:#10233f;color:#fff}.btn-soft{background:#f2f5f9;color:#394961;border:1px solid var(--line)}.btn-danger{background:var(--red-bg);color:var(--red)}
+.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+.toolbar h3{margin:0;font-size:17px}.toolbar .left p{margin:4px 0 0;color:var(--muted);font-size:11px}
+.tablebox{overflow:auto;border:1px solid var(--line);border-radius:15px}
+table{width:100%;border-collapse:collapse;min-width:760px;background:#fff}
+th{text-align:left;color:#667085;font-size:10px;text-transform:uppercase;letter-spacing:.055em;background:#fafbfd;padding:11px 12px}
+td{border-top:1px solid #edf0f4;padding:12px;font-size:12px;vertical-align:middle}
+tbody tr:hover{background:#fbfcfe}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;font-size:10px;font-weight:750}
+.chip:before{content:"";width:7px;height:7px;border-radius:50%}
+.chip.green{background:var(--green-bg);color:#137b50}.chip.green:before{background:#22b573}.chip.gray{background:#f1f3f6;color:#667085}.chip.gray:before{background:#98a2b3}.chip.amber{background:var(--amber-bg);color:#a86a08}.chip.amber:before{background:#e8a326}
+.cycle-list{display:grid;gap:10px}.cycle{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:15px;background:#fff}
+.cycle.selected{border-color:#efc56d;box-shadow:0 0 0 3px rgba(236,168,20,.08)}.cycle h4{margin:8px 0 3px;font-size:18px}.cycle p{margin:0;color:var(--muted);font-size:11px}.cycle-actions{display:flex;gap:7px;align-items:center}
+.iconbtn{width:35px;height:35px;border:1px solid var(--line);background:#fff;border-radius:10px;color:#526177;display:grid;place-items:center}.iconbtn.danger{color:var(--red);background:var(--red-bg)}
+.prom-filter{display:flex;gap:7px}.seg{border:1px solid var(--line);background:#fff;color:#526177;border-radius:10px;padding:8px 11px;font-size:11px;font-weight:750}.seg.active{background:#10233f;color:#fff;border-color:#10233f}
+.money{font-variant-numeric:tabular-nums;font-weight:750}
+.muted{color:var(--muted)}
+.summary-list{display:grid;gap:10px;margin-top:13px}.summary-row{display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line);font-size:12px}.summary-row:last-child{border-bottom:0}.summary-row b{font-size:13px}
+.notice{background:var(--blue-bg);color:#496789;padding:12px 13px;border-radius:13px;font-size:11px;line-height:1.5}
+.placeholder{padding:25px}.placeholder .big{font-size:17px;font-weight:800}.placeholder p{color:var(--muted);font-size:12px;line-height:1.55}
+.modalbg{display:none;position:fixed;inset:0;background:rgba(6,14,26,.55);backdrop-filter:blur(5px);z-index:50;align-items:center;justify-content:center;padding:18px}.modalbg.open{display:flex}
+.modal{width:min(570px,100%);background:#fff;border-radius:22px;padding:21px;box-shadow:0 30px 90px rgba(0,0,0,.2)}
+.modal h3{margin:0;font-size:19px}.modal p{font-size:11px;color:var(--muted);line-height:1.5}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.field{margin-top:11px}.field.full{grid-column:1/-1}.field label{display:block;font-size:10px;font-weight:750;color:#59687e;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid #dfe5ed;background:#fbfcfd;border-radius:11px;padding:10px 11px;outline:none;font-size:12px}.field input:focus,.field select:focus,.field textarea:focus{border-color:#e8b84e;box-shadow:0 0 0 3px rgba(236,168,20,.1)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
+.toast{display:none;position:fixed;right:22px;bottom:22px;background:#10233f;color:#fff;border-radius:12px;padding:11px 14px;font-size:11px;box-shadow:0 15px 40px rgba(0,0,0,.16);z-index:80}.toast.show{display:block}
+.mini-stat{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini{background:#f9fafc;border:1px solid var(--line);border-radius:13px;padding:12px}.mini span{display:block;color:var(--muted);font-size:10px}.mini strong{font-size:15px;margin-top:4px;display:block}
+@media(max-width:1100px){.app{grid-template-columns:1fr}.sidebar{display:none}.grid-kpi{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
+@media(max-width:680px){.main{padding:12px}.grid-kpi{grid-template-columns:1fr}.topbar{height:auto}.profile .ptext{display:none}.pagehead{align-items:flex-start;flex-direction:column}.pagehead h1{font-size:29px}.formgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"><i data-lucide="church"></i></div>
+      <div><div class="brand-name" id="brandName">Mayordomía IBFILM</div><div class="brand-sub" id="brandSub">Sistema de Tesorería</div></div>
+    </div>
+    <div class="menu">
+      <button><i data-lucide="house"></i>Inicio</button>
+      <button class="active"><i data-lucide="globe-2"></i>Ofrenda Misionera</button>
+      <button><i data-lucide="layout-grid"></i>Matriz General</button>
+      <button><i data-lucide="landmark"></i>Cierre de Culto</button>
+      <button><i data-lucide="circle-plus"></i>Registro rápido</button>
+      <button><i data-lucide="wallet-cards"></i>Egresos</button>
+      <button><i data-lucide="users"></i>Miembros</button>
+      <button><i data-lucide="arrow-left-right"></i>Movimientos</button>
+      <button><i data-lucide="chart-no-axes-column"></i>Reportes</button>
+      <button><i data-lucide="heart"></i>Promesas</button>
+      <button><i data-lucide="cloud"></i>Respaldo</button>
+      <button><i data-lucide="settings"></i>Configuración</button>
+    </div>
+    <div class="side-footer">
+      <div class="sync-side"><span class="dot"></span><span id="syncSide">Conectando a Firebase…</span></div>
+      <div class="sync-detail">Esta versión usa los mismos ciclos y promesas de tu app actual.</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="search"><i data-lucide="search"></i><input id="globalSearch" placeholder="Buscar en ciclos o promesas…"></div>
+      <div class="profile">
+        <i data-lucide="bell" style="width:20px;color:#526177"></i>
+        <div class="avatar" id="avatar">ER</div>
+        <div class="ptext"><strong id="profileName">Tesorero</strong><small id="profileRole">Mayordomía</small></div>
+      </div>
+    </div>
+
+    <div class="pagehead">
+      <div><h1>Ofrenda Misionera</h1><p>Gestión integral por ciclo · versión funcional 3.0</p></div>
+      <div class="live"><span class="dot"></span><span id="liveText">Cargando datos reales…</span></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="resumen">Resumen</button>
+      <button class="tab" data-tab="captura">Captura</button>
+      <button class="tab" data-tab="matriz">Matriz</button>
+      <button class="tab" data-tab="ciclos">Ciclos</button>
+      <button class="tab" data-tab="promesas">Promesas</button>
+      <button class="tab" data-tab="beneficiarios">Beneficiarios</button>
+      <button class="tab" data-tab="dispersion">Dispersión</button>
+    </div>
+
+    <section id="resumen" class="pane active">
+      <div class="grid-kpi">
+        <div class="card kpi"><div class="kicon"><i data-lucide="coins"></i></div><div><div class="klabel">Recaudado / saldo del ciclo</div><div class="kvalue" id="kpiBalance">$0.00</div><div class="ksub" id="kpiMovs">0 movimientos asociados</div></div></div>
+        <div class="card kpi"><div class="kicon"><i data-lucide="calendar-days"></i></div><div><div class="klabel">Ciclo seleccionado</div><div class="kvalue" id="kpiCycle">—</div><div class="ksub" id="kpiDates">Selecciona un ciclo</div></div></div>
+        <div class="card kpi"><div class="kicon"><i data-lucide="heart-handshake"></i></div><div><div class="klabel">Promesas activas</div><div class="kvalue" id="kpiPromCount">0</div><div class="ksub" id="kpiPromTotal">$0.00 comprometidos por periodo</div></div></div>
+        <div class="card kpi"><div class="kicon"><i data-lucide="send"></i></div><div><div class="klabel">Beneficiarios</div><div class="kvalue">Próxima fase</div><div class="ksub">Catálogo + dispersión bancaria</div></div></div>
+      </div>
+
+      <div class="two">
+        <div class="card pad">
+          <div class="toolbar">
+            <div class="left"><h3>Ciclos misioneros</h3><p>Datos reales compartidos con la app actual</p></div>
+            <div class="actions"><button class="btn btn-soft" onclick="goTab('ciclos')">Administrar</button><button class="btn btn-primary" onclick="openCycleModal()">+ Nuevo ciclo</button></div>
+          </div>
+          <div id="cycleListHome" class="cycle-list"></div>
+        </div>
+        <div class="card pad">
+          <div class="toolbar"><div class="left"><h3>Promesas del ciclo</h3><p id="promSummaryCycle">Sin ciclo seleccionado</p></div><button class="btn btn-soft" onclick="goTab('promesas')">Ver detalle</button></div>
+          <div class="mini-stat">
+            <div class="mini"><span>Semanales</span><strong id="miniWeekly">0</strong></div>
+            <div class="mini"><span>Quincenales</span><strong id="miniBiweekly">0</strong></div>
+          </div>
+          <div class="summary-list">
+            <div class="summary-row"><span>Total semanal prometido</span><b id="weeklyTotal">$0.00</b></div>
+            <div class="summary-row"><span>Total quincenal prometido</span><b id="biweeklyTotal">$0.00</b></div>
+            <div class="summary-row"><span>Última actualización</span><b id="promUpdated">—</b></div>
+          </div>
+          <div class="notice" style="margin-top:12px">Los cambios que guardes en <b>Ciclos</b> o <b>Promesas</b> se almacenan en las mismas claves y colecciones Firebase que utiliza Mayordomía IBFILM actual.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="captura" class="pane">
+      <div class="card placeholder">
+        <div class="big">Captura · siguiente integración</div>
+        <p>La interfaz ya está preparada para recibir la lógica real de captura semanal y quincenal de tu versión actual. En esta etapa no duplicamos todavía esa lógica para evitar inconsistencias mientras validamos Ciclos y Promesas.</p>
+        <div class="actions"><button class="btn btn-dark" onclick="goTab('promesas')">Revisar promesas</button><button class="btn btn-soft" onclick="goTab('ciclos')">Revisar ciclos</button></div>
+      </div>
+    </section>
+
+    <section id="matriz" class="pane">
+      <div class="card placeholder">
+        <div class="big">Matriz General · siguiente integración</div>
+        <p>La Matriz General permanecerá intacta y conservará la sincronización granular que acabamos de reparar. La siguiente fase trasladará su lógica completa a este diseño.</p>
+      </div>
+    </section>
+
+    <section id="ciclos" class="pane">
+      <div class="card pad">
+        <div class="toolbar">
+          <div class="left"><h3>Ciclos de Ofrenda Misionera</h3><p>Crear, editar, seleccionar y cerrar ciclos usando los datos reales.</p></div>
+          <button class="btn btn-primary" onclick="openCycleModal()">+ Nuevo ciclo</button>
+        </div>
+        <div id="cycleList" class="cycle-list"></div>
+      </div>
+    </section>
+
+    <section id="promesas" class="pane">
+      <div class="card pad">
+        <div class="toolbar">
+          <div class="left"><h3 id="promTitle">Promesas del ciclo</h3><p>Edita la misma información que utiliza la captura misionera actual.</p></div>
+          <div class="actions">
+            <div class="prom-filter"><button id="segWeekly" class="seg active" onclick="setPromFreq('semanal')">Semanales</button><button id="segBiweekly" class="seg" onclick="setPromFreq('quincenal')">Quincenales</button></div>
+            <button class="btn btn-primary" onclick="openPromiseModal()">+ Nueva promesa</button>
+          </div>
+        </div>
+        <div class="tablebox">
+          <table>
+            <thead><tr><th>Orden</th><th>Nombre</th><th>Frecuencia</th><th>Promesa</th><th>Estatus</th><th>Observaciones</th><th></th></tr></thead>
+            <tbody id="promTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="beneficiarios" class="pane"><div class="card placeholder"><div class="big">Beneficiarios · fase prioritaria siguiente</div><p>Después de validar Ciclos y Promesas, aquí crearemos el catálogo real de hermanos beneficiarios con monto, periodicidad, banco y cuenta enmascarada. Será la fuente de la dispersión.</p></div></section>
+    <section id="dispersion" class="pane"><div class="card placeholder"><div class="big">Dispersión · prioridad principal</div><p>Este módulo se conectará al catálogo de beneficiarios y posteriormente a un backend seguro para transferencias. Nunca se expondrán credenciales bancarias en el navegador.</p></div></section>
+  </main>
+</div>
+
+<div class="modalbg" id="cycleModal">
+  <div class="modal">
+    <h3 id="cycleModalTitle">Nuevo ciclo</h3>
+    <p>Los cambios se reflejarán en la app actual y en Firebase.</p>
+    <div class="formgrid">
+      <div class="field full"><label>Nombre del ciclo</label><input id="cycleName" placeholder="Ej. 2026-2027"></div>
+      <div class="field"><label>Fecha de inicio</label><input id="cycleStart" type="date"></div>
+      <div class="field"><label>Fecha de cierre</label><input id="cycleEnd" type="date"></div>
+      <div class="field full"><label>Estado</label><select id="cycleStatus"><option value="activo">Activo</option><option value="cerrado">Cerrado</option></select></div>
+    </div>
+    <input type="hidden" id="cycleEditId">
+    <div class="modal-actions"><button class="btn btn-soft" onclick="closeModal('cycleModal')">Cancelar</button><button class="btn btn-primary" onclick="saveCycle()">Guardar ciclo</button></div>
+  </div>
+</div>
+
+<div class="modalbg" id="promiseModal">
+  <div class="modal">
+    <h3 id="promiseModalTitle">Nueva promesa</h3>
+    <p id="promiseModalSub">Se guardará en el ciclo seleccionado.</p>
+    <div class="formgrid">
+      <div class="field full"><label>Nombre</label><input id="promiseName" placeholder="Nombre del hermano/a"></div>
+      <div class="field"><label>Monto prometido</label><input id="promiseAmount" type="number" min="0" step="1"></div>
+      <div class="field"><label>Estatus</label><select id="promiseStatus"><option>Activo</option><option>Inactivo</option></select></div>
+      <div class="field full"><label>Observaciones</label><textarea id="promiseObs" rows="3" placeholder="Opcional"></textarea></div>
+    </div>
+    <input type="hidden" id="promiseEditId">
+    <div class="modal-actions"><button class="btn btn-soft" onclick="closeModal('promiseModal')">Cancelar</button><button class="btn btn-primary" onclick="savePromise()">Guardar promesa</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
+  authDomain: "mayordomia-ibfilm.firebaseapp.com",
+  projectId: "mayordomia-ibfilm",
+  storageBucket: "mayordomia-ibfilm.firebasestorage.app",
+  messagingSenderId: "460839237215",
+  appId: "1:460839237215:web:82418bf1627eb9c40a8dea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const K_CYC='ibfilm_om_ciclos_v1';
+const K_PROM='ibfilm_om_promesas_v1';
+const K_MOV='ibfilm_movimientos_v2';
+const K_CFG='ibfilm_config_v1';
+const K_DEL='ibfilm_deleted_om';
+const K_ACTIVE='ibfilm_v3_active_cycle';
+const COL_CYC='om_ciclos', COL_PROM='om_promesas', COL_MOV='movimientos';
+
+const state={cycles:[],promises:{},movements:[],activeCycleId:null,promFreq:'semanal'};
+const $=id=>document.getElementById(id);
+const parse=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch{return fallback}};
+const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(n)||0);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg){
+  $('toast').textContent=msg;$('toast').classList.add('show');
+  clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2800);
+}
+window.closeModal=id=>$(id).classList.remove('open');
+window.goTab=id=>{
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active',p.id===id));
+  if(id==='ciclos')renderCycles();
+  if(id==='promesas')renderPromises();
+};
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>window.goTab(t.dataset.tab)));
+document.querySelectorAll('.modalbg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)window.closeModal(m.id)}));
+
+function configUI(){
+  const c=parse(K_CFG,{});
+  $('brandName').textContent=c.appName||'Mayordomía IBFILM';
+  $('brandSub').textContent=c.iglesia||'Sistema de Tesorería';
+  const n=c.tesorero||'Tesorero';
+  $('profileName').textContent=n;
+  $('profileRole').textContent='Tesorería';
+  $('avatar').textContent=n.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'ER';
+}
+function normalizeProm(data){
+  const norm=(arr,freq)=>(Array.isArray(arr)?arr:[]).map((m,i)=>({
+    id:m.id||('p_'+freq+'_'+uid()),nombre:String(m.nombre||'').trim(),
+    promesa:Number(m.promesa??m.monto??0)||0,freq:freq==='semanal'?'Semanal':'Quincenal',
+    estatus:m.estatus||'Activo',orden:Number.isFinite(+m.orden)?+m.orden:i+1,obs:m.obs||''
+  })).filter(x=>x.nombre).sort((a,b)=>(a.orden||0)-(b.orden||0));
+  return {semanal:norm(data?.semanal,'semanal'),quincenal:norm(data?.quincenal,'quincenal'),updatedAt:data?.updatedAt||new Date(0).toISOString()};
+}
+function loadLocal(){
+  state.cycles=parse(K_CYC,[]);
+  state.promises=parse(K_PROM,{});
+  state.movements=parse(K_MOV,[]);
+  const saved=localStorage.getItem(K_ACTIVE);
+  state.activeCycleId = state.cycles.some(c=>c.id===saved) ? saved :
+    (state.cycles.find(c=>String(c.estado||'').toLowerCase()==='activo')?.id || state.cycles[0]?.id || null);
+  if(state.activeCycleId)localStorage.setItem(K_ACTIVE,state.activeCycleId);
+}
+function activeCycle(){return state.cycles.find(c=>c.id===state.activeCycleId)||null}
+function activeProm(){return normalizeProm(state.promises[state.activeCycleId]||{})}
+function dateLabel(s){if(!s)return 'Sin fecha';const d=new Date(s+'T12:00:00');return d.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}
+function cycleMovements(c){
+  if(!c)return [];
+  const target=('Ofrenda Misionera '+c.nombre).toLowerCase();
+  return state.movements.filter(m=>{
+    const byId=m.cicloId===c.id;
+    const txt=[m.concepto,m.categoria,m.cicloNombre,m.origen].filter(Boolean).join(' ').toLowerCase();
+    return byId || txt.includes(target.toLowerCase()) || txt.includes(String(c.id).toLowerCase());
+  });
+}
+function renderSummary(){
+  const c=activeCycle(), p=activeProm(), movs=cycleMovements(c);
+  const balance=movs.reduce((s,m)=>s+(m.tipo==='Ingreso'?Number(m.monto||0):m.tipo==='Egreso'?-Number(m.monto||0):0),0);
+  const all=[...p.semanal,...p.quincenal].filter(x=>String(x.estatus).toLowerCase()!=='inactivo');
+  $('kpiBalance').textContent=money(balance);
+  $('kpiMovs').textContent=`${movs.length} movimientos asociados`;
+  $('kpiCycle').textContent=c?.nombre||'—';
+  $('kpiDates').textContent=c?`${dateLabel(c.inicio)} – ${dateLabel(c.fin)}`:'Selecciona un ciclo';
+  $('kpiPromCount').textContent=all.length;
+  $('kpiPromTotal').textContent=`${money(all.reduce((s,x)=>s+x.promesa,0))} comprometidos por periodo`;
+  $('promSummaryCycle').textContent=c?`Ciclo ${c.nombre}`:'Sin ciclo seleccionado';
+  $('miniWeekly').textContent=p.semanal.length;
+  $('miniBiweekly').textContent=p.quincenal.length;
+  $('weeklyTotal').textContent=money(p.semanal.reduce((s,x)=>s+x.promesa,0));
+  $('biweeklyTotal').textContent=money(p.quincenal.reduce((s,x)=>s+x.promesa,0));
+  $('promUpdated').textContent=p.updatedAt&&new Date(p.updatedAt).getTime()?new Date(p.updatedAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}):'—';
+  renderCyclesHome();
+}
+function renderCyclesHome(){
+  const host=$('cycleListHome');const list=[...state.cycles].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,3);
+  if(!list.length){host.innerHTML='<div class="empty"><i data-lucide="calendar-x"></i><div>Sin ciclos registrados</div></div>';lucide.createIcons();return}
+  host.innerHTML=list.map(c=>cycleHTML(c,true)).join('');lucide.createIcons();
+}
+function cycleHTML(c,compact=false){
+  const selected=c.id===state.activeCycleId;
+  return `<div class="cycle ${selected?'selected':''}">
+    <div>
+      <span class="chip ${String(c.estado).toLowerCase()==='activo'?'green':'gray'}">${esc(c.estado||'Activo')}</span>
+      <h4>${esc(c.nombre)}</h4>
+      <p>${dateLabel(c.inicio)} – ${dateLabel(c.fin)}${selected?' · Seleccionado':''}</p>
+    </div>
+    <div class="cycle-actions">
+      ${!selected?`<button class="btn btn-soft" onclick="selectCycle('${esc(c.id)}')">Seleccionar</button>`:''}
+      ${compact?'':`<button class="iconbtn" title="Editar" onclick="openCycleModal('${esc(c.id)}')"><i data-lucide="pencil"></i></button><button class="iconbtn danger" title="Eliminar" onclick="deleteCycleUI('${esc(c.id)}')"><i data-lucide="trash-2"></i></button>`}
+    </div>
+  </div>`;
+}
+function renderCycles(){
+  const host=$('cycleList');const list=[...state.cycles].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  host.innerHTML=list.length?list.map(c=>cycleHTML(c,false)).join(''):'<div class="empty"><i data-lucide="calendar-plus"></i><div>No hay ciclos. Crea el primero.</div></div>';
+  lucide.createIcons();
+}
+window.selectCycle=id=>{
+  state.activeCycleId=id;localStorage.setItem(K_ACTIVE,id);renderAll();toast('Ciclo seleccionado');
+};
+window.openCycleModal=id=>{
+  const c=state.cycles.find(x=>x.id===id);
+  $('cycleModalTitle').textContent=c?'Editar ciclo':'Nuevo ciclo';
+  $('cycleEditId').value=c?.id||'';$('cycleName').value=c?.nombre||'';$('cycleStart').value=c?.inicio||'';$('cycleEnd').value=c?.fin||'';$('cycleStatus').value=c?.estado||'activo';
+  $('cycleModal').classList.add('open');
+};
+async function saveCycleCloud(c){await setDoc(doc(db,COL_CYC,c.id),c)}
+window.saveCycle=async()=>{
+  const name=$('cycleName').value.trim();if(!name)return toast('Escribe el nombre del ciclo');
+  const editId=$('cycleEditId').value;const now=new Date().toISOString();const id=editId||uid();
+  const old=state.cycles.find(c=>c.id===id);
+  const c={...(old||{}),id,nombre:name,inicio:$('cycleStart').value,fin:$('cycleEnd').value,estado:$('cycleStatus').value,createdAt:old?.createdAt||now,updatedAt:now};
+  const idx=state.cycles.findIndex(x=>x.id===id);if(idx>=0)state.cycles[idx]=c;else state.cycles.push(c);
+  localStorage.setItem(K_CYC,JSON.stringify(state.cycles));
+  if(!editId){
+    const all=state.promises; if(!all[id]){
+      const source=state.promises[state.activeCycleId]||{semanal:[],quincenal:[]};
+      all[id]=normalizeProm(JSON.parse(JSON.stringify(source)));all[id].updatedAt=now;
+      localStorage.setItem(K_PROM,JSON.stringify(all));
+      await setDoc(doc(db,COL_PROM,id),{id,cicloId:id,data:all[id],updatedAt:now});
+    }
+    state.activeCycleId=id;localStorage.setItem(K_ACTIVE,id);
+  }
+  try{await saveCycleCloud(c);window.closeModal('cycleModal');renderAll();toast(`Ciclo "${name}" guardado`)}catch(e){toast('Guardado local; Firebase reportó: '+(e.code||e.message))}
+};
+window.deleteCycleUI=async id=>{
+  const c=state.cycles.find(x=>x.id===id);if(!c)return;
+  if(!confirm(`¿Eliminar el ciclo "${c.nombre}"? Los movimientos NO se eliminarán.`))return;
+  state.cycles=state.cycles.filter(x=>x.id!==id);localStorage.setItem(K_CYC,JSON.stringify(state.cycles));
+  const del=parse(K_DEL,[]);if(!del.includes(id)){del.push(id);localStorage.setItem(K_DEL,JSON.stringify(del))}
+  if(state.activeCycleId===id){state.activeCycleId=state.cycles.find(x=>x.estado==='activo')?.id||state.cycles[0]?.id||null;if(state.activeCycleId)localStorage.setItem(K_ACTIVE,state.activeCycleId);else localStorage.removeItem(K_ACTIVE)}
+  try{await deleteDoc(doc(db,COL_CYC,id))}catch{}
+  renderAll();toast('Ciclo eliminado');
+};
+
+window.setPromFreq=f=>{state.promFreq=f;renderPromises()};
+function currentPromArray(){const p=activeProm();return state.promFreq==='semanal'?p.semanal:p.quincenal}
+function renderPromises(){
+  const c=activeCycle();$('promTitle').textContent=c?`Promesas · ${c.nombre}`:'Promesas del ciclo';
+  $('segWeekly').classList.toggle('active',state.promFreq==='semanal');$('segBiweekly').classList.toggle('active',state.promFreq==='quincenal');
+  const arr=currentPromArray();const host=$('promTable');
+  if(!c){host.innerHTML='<tr><td colspan="7" class="muted">Primero selecciona un ciclo.</td></tr>';return}
+  host.innerHTML=arr.length?arr.map((p,i)=>`<tr>
+    <td>${p.orden||i+1}</td><td><b>${esc(p.nombre)}</b></td><td>${esc(p.freq)}</td><td class="money">${money(p.promesa)}</td>
+    <td><span class="chip ${String(p.estatus).toLowerCase()==='inactivo'?'gray':'green'}">${esc(p.estatus)}</span></td><td class="muted">${esc(p.obs||'—')}</td>
+    <td><div class="actions"><button class="iconbtn" onclick="openPromiseModal('${esc(p.id)}')"><i data-lucide="pencil"></i></button><button class="iconbtn danger" onclick="deletePromiseUI('${esc(p.id)}')"><i data-lucide="trash-2"></i></button></div></td>
+  </tr>`).join(''):'<tr><td colspan="7" class="muted">No hay promesas en esta frecuencia.</td></tr>';
+  lucide.createIcons();
+}
+window.openPromiseModal=id=>{
+  const c=activeCycle();if(!c)return toast('Primero selecciona un ciclo');
+  const p=currentPromArray().find(x=>x.id===id);
+  $('promiseModalTitle').textContent=p?'Editar promesa':'Nueva promesa';$('promiseModalSub').textContent=`Ciclo ${c.nombre} · ${state.promFreq==='semanal'?'Semanal':'Quincenal'}`;
+  $('promiseEditId').value=p?.id||'';$('promiseName').value=p?.nombre||'';$('promiseAmount').value=p?.promesa??'';$('promiseStatus').value=p?.estatus||'Activo';$('promiseObs').value=p?.obs||'';
+  $('promiseModal').classList.add('open');
+};
+async function persistPromises(){
+  const id=state.activeCycleId;const data=normalizeProm(state.promises[id]||{});data.updatedAt=new Date().toISOString();state.promises[id]=data;
+  localStorage.setItem(K_PROM,JSON.stringify(state.promises));
+  await setDoc(doc(db,COL_PROM,id),{id,cicloId:id,data,updatedAt:data.updatedAt});
+}
+window.savePromise=async()=>{
+  const c=activeCycle();if(!c)return toast('Selecciona un ciclo');
+  const name=$('promiseName').value.trim();const amount=Number($('promiseAmount').value||0);if(!name)return toast('Escribe el nombre');if(amount<0)return toast('Monto inválido');
+  const data=normalizeProm(state.promises[c.id]||{});const arr=state.promFreq==='semanal'?data.semanal:data.quincenal;const edit=$('promiseEditId').value;
+  const old=arr.find(x=>x.id===edit);const item={id:edit||('p_'+state.promFreq+'_'+uid()),nombre:name,promesa:amount,freq:state.promFreq==='semanal'?'Semanal':'Quincenal',estatus:$('promiseStatus').value,orden:old?.orden||arr.length+1,obs:$('promiseObs').value.trim()};
+  const idx=arr.findIndex(x=>x.id===item.id);if(idx>=0)arr[idx]=item;else arr.push(item);arr.forEach((x,i)=>x.orden=i+1);
+  state.promises[c.id]=data;
+  try{await persistPromises();window.closeModal('promiseModal');renderAll();toast('Promesa guardada')}catch(e){renderAll();toast('Guardada localmente; Firebase reportó: '+(e.code||e.message))}
+};
+window.deletePromiseUI=async id=>{
+  const c=activeCycle();if(!c)return;
+  const data=normalizeProm(state.promises[c.id]||{});const key=state.promFreq==='semanal'?'semanal':'quincenal';const p=data[key].find(x=>x.id===id);if(!p)return;
+  if(!confirm(`¿Eliminar la promesa de "${p.nombre}"?`))return;
+  data[key]=data[key].filter(x=>x.id!==id);data[key].forEach((x,i)=>x.orden=i+1);state.promises[c.id]=data;
+  try{await persistPromises();renderAll();toast('Promesa eliminada')}catch(e){renderAll();toast('Eliminada localmente; Firebase reportó un error')}
+};
+
+function renderAll(){renderSummary();renderCycles();renderPromises();lucide.createIcons()}
+function setSync(ok,msg){$('liveText').textContent=msg;$('syncSide').textContent=msg;document.querySelector('.live').style.background=ok?'var(--green-bg)':'var(--amber-bg)';document.querySelector('.live').style.color=ok?'#14744e':'#9b6508'}
+function mergeByUpdated(local,cloud){
+  const map=new Map();[...(local||[]),...(cloud||[])].forEach(x=>{
+    if(!x?.id)return;const cur=map.get(x.id);if(!cur){map.set(x.id,x);return}
+    const a=new Date(cur.updatedAt||cur.createdAt||0).getTime(),b=new Date(x.updatedAt||x.createdAt||0).getTime();if(b>=a)map.set(x.id,x);
+  });return [...map.values()];
+}
+async function start(){
+  configUI();loadLocal();renderAll();lucide.createIcons();
+  try{
+    const [cs,ps,ms]=await Promise.all([getDocs(collection(db,COL_CYC)),getDocs(collection(db,COL_PROM)),getDocs(collection(db,COL_MOV))]);
+    const cloudCycles=[];cs.forEach(d=>cloudCycles.push(d.data()));
+    const deleted=new Set(parse(K_DEL,[]));state.cycles=mergeByUpdated(state.cycles,cloudCycles).filter(c=>!deleted.has(c.id));localStorage.setItem(K_CYC,JSON.stringify(state.cycles));
+    ps.forEach(d=>{const r=d.data();if(r?.cicloId&&r?.data){const local=state.promises[r.cicloId];const lt=new Date(local?.updatedAt||0).getTime(),ct=new Date(r.data.updatedAt||r.updatedAt||0).getTime();if(!local||ct>=lt)state.promises[r.cicloId]=r.data}});
+    localStorage.setItem(K_PROM,JSON.stringify(state.promises));
+    state.movements=[];ms.forEach(d=>state.movements.push(d.data()));localStorage.setItem(K_MOV,JSON.stringify(state.movements));
+    if(!state.activeCycleId||!state.cycles.some(c=>c.id===state.activeCycleId)){state.activeCycleId=state.cycles.find(c=>c.estado==='activo')?.id||state.cycles[0]?.id||null;if(state.activeCycleId)localStorage.setItem(K_ACTIVE,state.activeCycleId)}
+    renderAll();setSync(true,'Sincronizado en tiempo real');
+  }catch(e){setSync(false,'Datos locales · Firebase no disponible')}
+
+  onSnapshot(collection(db,COL_CYC),snap=>{
+    const cloud=[];snap.forEach(d=>cloud.push(d.data()));const deleted=new Set(parse(K_DEL,[]));state.cycles=mergeByUpdated(state.cycles,cloud).filter(c=>!deleted.has(c.id));localStorage.setItem(K_CYC,JSON.stringify(state.cycles));renderAll();setSync(true,'Sincronizado en tiempo real')
+  },()=>setSync(false,'Error de sincronización de ciclos'));
+
+  onSnapshot(collection(db,COL_PROM),snap=>{
+    snap.docChanges().forEach(ch=>{const r=ch.doc.data();const id=r?.cicloId||ch.doc.id;if(ch.type==='removed')delete state.promises[id];else if(r?.data)state.promises[id]=r.data});
+    localStorage.setItem(K_PROM,JSON.stringify(state.promises));renderAll();setSync(true,'Sincronizado en tiempo real')
+  },()=>setSync(false,'Error de sincronización de promesas'));
+
+  onSnapshot(collection(db,COL_MOV),snap=>{
+    state.movements=[];snap.forEach(d=>state.movements.push(d.data()));localStorage.setItem(K_MOV,JSON.stringify(state.movements));renderSummary()
+  });
+}
+$('globalSearch').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();if(!q)return;
+  const cyc=state.cycles.find(c=>String(c.nombre).toLowerCase().includes(q));if(cyc){window.goTab('ciclos');return}
+  const p=Object.entries(state.promises).flatMap(([cid,d])=>[...(d.semanal||[]),...(d.quincenal||[])].map(x=>({...x,cid}))).find(x=>String(x.nombre).toLowerCase().includes(q));
+  if(p){state.activeCycleId=p.cid;localStorage.setItem(K_ACTIVE,p.cid);window.goTab('promesas');renderAll()}
+});
+start();
+</script>
+</body>
+</html>
