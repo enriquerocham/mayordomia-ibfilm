@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- MAYORDOMÍA IBFILM 3.0 · RELEASE OFICIAL · 2026-09-29 -->
+<!-- MAYORDOMÍA IBFILM 3.0.1 · HOTFIX SINCRONIZACIÓN DE CICLOS · 2026-09-29 -->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -13,7 +13,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="description" content="Mayordomía IBFILM 3.0 — Sistema integral de tesorería, ofrenda misionera, reportes y control administrativo">
 
-  <title>Mayordomía IBFILM 3.0</title>
+  <title>Mayordomía IBFILM 3.0.1</title>
 
   <!-- Styles -->
   <style>
@@ -2407,84 +2407,19 @@ function mergeManualMatrixData(a, b) {
 }
 
 function repararCicloMisioneroOficial() {
-  let ciclos = [];
-  try { ciclos = loadOMCiclos(); } catch(e) { ciclos = []; }
-  let movs = loadMov();
-  const cicloNombreCompleto = 'Ofrenda Misionera ' + OM_CICLO_OFICIAL.nombre;
-  const esOficial = c => String(c?.nombre || '').replace(/\s+/g,'').includes('2025-2026');
-  const scoreCiclo = c => movs.filter(m => m && (m.cicloId === c.id || m.cicloNombre === ('Ofrenda Misionera ' + c.nombre) || m.concepto === ('Ofrenda Misionera ' + c.nombre))).length;
-
-  let candidatos = ciclos.filter(esOficial);
-  let keep = candidatos.sort((a,b) => scoreCiclo(b) - scoreCiclo(a))[0];
-  if (!keep) {
-    keep = { id: 'om_2025_2026', createdAt: new Date().toISOString() };
+  // Compatibilidad histórica: desde 3.0.1 esta función ya NO elimina ni reasigna ciclos.
+  localStorage.removeItem('ibfilm_deleted_om');
+  const ciclos = (typeof loadOMCiclos === 'function') ? loadOMCiclos() : [];
+  const activo = ciclos.find(c => c && c.estado === 'activo')
+              || ciclos.find(c => c && c.estado !== 'archivado')
+              || ciclos[0]
+              || null;
+  if (activo) {
+    window.omCicloActivo = activo.id;
+    window.omCicloNombre = 'Ofrenda Misionera ' + activo.nombre;
+    localStorage.setItem('ibfilm_om_active_cycle_v3', activo.id);
   }
-  keep.nombre = OM_CICLO_OFICIAL.nombre;
-  keep.inicio = OM_CICLO_OFICIAL.inicio;
-  keep.fin = OM_CICLO_OFICIAL.fin;
-  keep.estado = OM_CICLO_OFICIAL.estado;
-  keep.updatedAt = new Date().toISOString();
-
-  const otros = ciclos.filter(c => c.id !== keep.id);
-  const otrosIds = otros.map(c => c.id);
-  const otrosNombres = otros.map(c => 'Ofrenda Misionera ' + (c.nombre || '')).filter(Boolean);
-
-  movs = movs.map(m => {
-    if (!m) return m;
-    const esMisiones = m.categoria === 'Misiones' || String(m.concepto || '').includes('Ofrenda Misionera') || String(m.cicloNombre || '').includes('Ofrenda Misionera');
-    const enRango = !m.fecha || (m.fecha >= OM_CICLO_OFICIAL.inicio && m.fecha <= OM_CICLO_OFICIAL.fin);
-    const vieneDeCicloEliminado = otrosIds.includes(m.cicloId) || otrosNombres.includes(m.cicloNombre) || otrosNombres.includes(m.concepto);
-    const vieneDelOficial = m.cicloId === keep.id || m.cicloNombre === cicloNombreCompleto || m.concepto === cicloNombreCompleto;
-    if (esMisiones && (enRango || vieneDeCicloEliminado || vieneDelOficial)) {
-      return Object.assign({}, m, {
-        cicloId: keep.id,
-        cicloNombre: cicloNombreCompleto,
-        concepto: cicloNombreCompleto,
-        categoria: 'Misiones'
-      });
-    }
-    return m;
-  });
-  saveMov(movs);
-
-  localStorage.setItem(K_OM_CICLOS, JSON.stringify([keep]));
-  if (typeof window.fbSaveOM === 'function') window.fbSaveOM(keep);
-  otrosIds.forEach(id => { if (typeof window.fbDelOM === 'function') window.fbDelOM(id); });
-  updateDeletedIdsStorage('ibfilm_deleted_om', otrosIds);
-
-  // Promesas por ciclo: conservar las del ciclo oficial y migrar si estaban en otro id.
-  const allProm = loadOMPromesasAll();
-  if (!allProm[keep.id]) {
-    const origen = otrosIds.find(id => allProm[id]);
-    allProm[keep.id] = origen ? allProm[origen] : omPromesasBaseActuales();
-  }
-  otrosIds.forEach(id => {
-    if (allProm[id]) delete allProm[id];
-    if (typeof window.fbDelOMProm === 'function') window.fbDelOMProm(id);
-  });
-  saveOMPromesasAll(allProm);
-  if (typeof window.fbSaveOMProm === 'function') window.fbSaveOMProm(keep.id, allProm[keep.id]);
-
-  // Matriz histórica manual: fusionar capturas antiguas hacia el ciclo oficial.
-  try {
-    const mat = JSON.parse(localStorage.getItem('ibfilm_matriz_manual_v1') || '{}');
-    let base = mat[keep.id] || { cicloId: keep.id, semanal:{}, quincenal:{} };
-    otrosIds.forEach(id => {
-      if (mat[id]) {
-        base = mergeManualMatrixData(base, mat[id]);
-        delete mat[id];
-      }
-    });
-    base.cicloId = keep.id;
-    base.updatedAt = new Date().toISOString();
-    mat[keep.id] = base;
-    localStorage.setItem('ibfilm_matriz_manual_v1', JSON.stringify(mat));
-    if (typeof window.fbSaveMatManual === 'function') window.fbSaveMatManual(keep.id, base);
-  } catch(e) {}
-
-  window.omCicloActivo = keep.id;
-  window.omCicloNombre = cicloNombreCompleto;
-  return { keep, ciclosEliminados: otrosIds.length };
+  return { keep: activo, ciclosEliminados: 0 };
 }
 
 function repararDuplicadosYCiclo() {
@@ -3007,7 +2942,7 @@ function testStorage() {
 
 function exportarJSON() {
   const data = {
-    app: 'Mayordomía IBFILM', version: '3.0',
+    app: 'Mayordomía IBFILM', version: '3.0.1',
     fecha: new Date().toISOString(),
     movimientos: loadMov(), miembros: loadMem(), config: loadConfig(),
     ciclosMisioneros: (typeof loadOMCiclos === 'function' ? loadOMCiclos() : []),
@@ -5336,8 +5271,26 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
   app: 'Mayordomía IBFILM',
   version: '3.0',
   release: '2026-09-29',
-  channel: 'production'
+  channel: 'production-hotfix-cycles'
 });
+</script>
+
+
+<script id="om-cycle-sync-v301-migration">
+(function(){
+  try{
+    const legacy = JSON.parse(localStorage.getItem('ibfilm_deleted_om') || '[]');
+    if (Array.isArray(legacy) && legacy.length) {
+      localStorage.setItem('ibfilm_deleted_om_legacy_v301', JSON.stringify({
+        migratedAt: new Date().toISOString(),
+        ids: legacy
+      }));
+    }
+    localStorage.removeItem('ibfilm_deleted_om');
+  }catch(e){
+    localStorage.removeItem('ibfilm_deleted_om');
+  }
+})();
 </script>
 
 </head>
@@ -7369,7 +7322,7 @@ function promExportCSV() {
       startArrayRealtime(COL_MOV, 'ibfilm_movimientos_v2', 'ibfilm_deleted_ids', 'movimientos');
       startArrayRealtime(COL_MEM, 'ibfilm_miembros_v1', 'ibfilm_deleted_mem', 'miembros');
       startArrayRealtime(COL_EV,  'ibfilm_promesas_v1', 'ibfilm_deleted_ev', 'eventos');
-      startArrayRealtime(COL_OM,  'ibfilm_om_ciclos_v1', 'ibfilm_deleted_om', 'om_ciclos');
+      startArrayRealtime(COL_OM,  'ibfilm_om_ciclos_v1', null, 'om_ciclos');
       startOMPromisesRealtime();
       startMatManualRealtime();
     }
@@ -7455,24 +7408,41 @@ function promExportCSV() {
           // Subir versión merged a Firebase
           merged.forEach(ev => { if(window.fbSaveEv) window.fbSaveEv(ev); });
         }
-        // Ciclos de Ofrenda Misionera — merge con datos locales
-        const deletedOM = JSON.parse(localStorage.getItem('ibfilm_deleted_om')||'[]');
+        // Ciclos de Ofrenda Misionera — sincronización compartida por updatedAt.
+        // Desde 3.0.1 no existen marcas de eliminado por dispositivo.
+        localStorage.removeItem('ibfilm_deleted_om');
         const omSnap = await getDocs(collection(db, COL_OM));
         const ciclosFB = [];
         omSnap.forEach(d => ciclosFB.push(d.data()));
-        if (ciclosFB.length > 0 || deletedOM.length > 0) {
-          deletedOM.forEach(id => { if(window.fbDelOM) window.fbDelOM(id); });
-          const ciclosFBFiltered = ciclosFB.filter(c => !deletedOM.includes(c.id));
-          const ciclosLocal = JSON.parse(localStorage.getItem('ibfilm_om_ciclos_v1') || '[]').filter(c => !deletedOM.includes(c.id));
-          const mergedOM = [...ciclosFBFiltered];
-          ciclosLocal.forEach(localCiclo => {
-            const idx = mergedOM.findIndex(c => c.id === localCiclo.id);
-            if (idx >= 0) mergedOM[idx] = Object.assign({}, mergedOM[idx], localCiclo);
-            else mergedOM.push(localCiclo);
-          });
-          localStorage.setItem('ibfilm_om_ciclos_v1', JSON.stringify(mergedOM));
-          mergedOM.forEach(ciclo => { if(window.fbSaveOM) window.fbSaveOM(ciclo); });
-        }
+        const ciclosLocal = JSON.parse(localStorage.getItem('ibfilm_om_ciclos_v1') || '[]');
+        const omMap = new Map();
+
+        ciclosFB.forEach(c => {
+          if (c && c.id) omMap.set(c.id, c);
+        });
+
+        ciclosLocal.forEach(localCiclo => {
+          if (!localCiclo || !localCiclo.id) return;
+          const remoto = omMap.get(localCiclo.id);
+          if (!remoto) {
+            // Ciclo creado localmente que aún no había alcanzado Firebase.
+            omMap.set(localCiclo.id, localCiclo);
+            if (window.fbSaveOM) window.fbSaveOM(localCiclo);
+            return;
+          }
+          const rt = new Date(remoto.updatedAt || remoto.createdAt || 0).getTime();
+          const lt = new Date(localCiclo.updatedAt || localCiclo.createdAt || 0).getTime();
+          if (lt > rt) {
+            omMap.set(localCiclo.id, Object.assign({}, remoto, localCiclo));
+            if (window.fbSaveOM) window.fbSaveOM(localCiclo);
+          } else {
+            // Firebase más reciente (o empate): sus datos ganan para converger entre dispositivos.
+            omMap.set(localCiclo.id, Object.assign({}, localCiclo, remoto));
+          }
+        });
+
+        const mergedOM = Array.from(omMap.values());
+        localStorage.setItem('ibfilm_om_ciclos_v1', JSON.stringify(mergedOM));
 
         // Promesas misioneras por ciclo — merge por updatedAt
         const omPromSnap = await getDocs(collection(db, COL_OM_PROM));
@@ -7855,6 +7825,17 @@ function omGuardarCiclo() {
   } else {
     ciclos.push(Object.assign({ id: savedId, createdAt: new Date().toISOString() }, obj));
   }
+
+  // Regla 3.0.1: sólo un ciclo puede permanecer como vigente/activo.
+  if (estado === 'activo') {
+    ciclos.forEach(function(c) {
+      if (c.id !== savedId && c.estado === 'activo') {
+        c.estado = 'cerrado';
+        c.updatedAt = obj.updatedAt;
+      }
+    });
+  }
+
   saveOMCiclos(ciclos);
   if (estado === 'activo') {
     window.omCicloActivo = savedId;
@@ -7906,23 +7887,8 @@ function omArchivarCiclo(id) {
 }
 
 function omEliminarCiclo(id) {
-  var ciclos = loadOMCiclos();
-  var ciclo = ciclos.find(function(c){ return c.id === id; });
-  if (!ciclo) return;
-  if (!confirm('¿Eliminar el ciclo "' + ciclo.nombre + '"? Los movimientos NO se eliminarán.')) return;
-  saveOMCiclos(ciclos.filter(function(c){ return c.id !== id; }));
-  if (typeof window.fbDelOM === 'function') window.fbDelOM(id);
-  var del = JSON.parse(localStorage.getItem('ibfilm_deleted_om') || '[]');
-  if (!del.includes(id)) {
-    del.push(id);
-    localStorage.setItem('ibfilm_deleted_om', JSON.stringify(del));
-  }
-  if (window.omCicloActivo === id) {
-    window.omCicloActivo = null;
-    window.omCicloNombre = null;
-  }
-  omRenderCiclos();
-  toast('Ciclo eliminado', 'warn');
+  // Compatibilidad con versiones antiguas: nunca borrar físicamente un ciclo.
+  return omArchivarCiclo(id);
 }
 
 
@@ -8077,8 +8043,8 @@ function omEnsureActiveCycleV3() {
   }
   const saved = localStorage.getItem(K_OM_ACTIVE_V3);
   let ciclo = ciclos.find(c => c.id === window.omCicloActivo && c.estado !== 'archivado')
-           || ciclos.find(c => c.id === saved && c.estado !== 'archivado')
            || ciclos.find(c => c.estado === 'activo')
+           || ciclos.find(c => c.id === saved && c.estado !== 'archivado')
            || ciclos.filter(c => c.estado !== 'archivado').sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0]
            || ciclos[0];
   if (ciclo) {
