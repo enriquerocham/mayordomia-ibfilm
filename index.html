@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- MAYORDOMÍA IBFILM 3.0.1 · HOTFIX SINCRONIZACIÓN DE CICLOS · 2026-09-29 -->
+<!-- MAYORDOMÍA IBFILM 3.1-A · AUTH + USUARIOS + ROLES · 2026-09-30 -->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -13,7 +13,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="description" content="Mayordomía IBFILM 3.0 — Sistema integral de tesorería, ofrenda misionera, reportes y control administrativo">
 
-  <title>Mayordomía IBFILM 3.0.1</title>
+  <title>Mayordomía IBFILM 3.1-A</title>
 
   <!-- Styles -->
   <style>
@@ -1775,13 +1775,17 @@ function toast(msg, tipo = 'ok') {
 const PAGE_TITLES = {
   inicio:'Panel de Control', registro:'Registro rápido', egresos:'Registrar Egreso',
   miembros:'Miembros', movimientos:'Movimientos', 'rep-diario':'Reporte Diario',
-  reportes:'Reportes Generales', respaldo:'Respaldo', config:'Configuración',
+  reportes:'Reportes Generales', respaldo:'Respaldo', usuarios:'Usuarios y permisos', config:'Configuración',
   'om-resumen':'Ofrenda Misionera', colecta:'Ofrenda Misionera', matriz:'Matriz General',
   'om-promesas':'Promesas misioneras', beneficiarios:'Beneficiarios misioneros', dispersion:'Dispersión misionera',
   cierre:'Cierre de Culto', promesas:'Promesas especiales'
 };
 
 function nav(id) {
+  if (window.MAYORDOMIA_SECURITY_READY && typeof window.mayordomiaCanAccessPage === 'function' && !window.mayordomiaCanAccessPage(id)) {
+    toast('Tu rol no tiene permiso para abrir esta sección.','warn');
+    id = 'inicio';
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.bnav-item,.sidebar-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('pg-' + id);
@@ -1804,6 +1808,7 @@ function nav(id) {
   if (id === 'reportes')     initRepGeneral();
   if (id === 'respaldo')     updateBackupStats();
   if (id === 'config')       applyConfig();
+  if (id === 'usuarios' && typeof window.renderUsuariosAdmin === 'function') window.renderUsuariosAdmin();
   if (id === 'colecta') {
     // Si hay ciclo activo seleccionado, ir directo; si no, mostrar selector
     if (window.omCicloActivo) { initColecta(); }
@@ -2942,7 +2947,7 @@ function testStorage() {
 
 function exportarJSON() {
   const data = {
-    app: 'Mayordomía IBFILM', version: '3.0.1',
+    app: 'Mayordomía IBFILM', version: '3.1-A',
     fecha: new Date().toISOString(),
     movimientos: loadMov(), miembros: loadMem(), config: loadConfig(),
     ciclosMisioneros: (typeof loadOMCiclos === 'function' ? loadOMCiclos() : []),
@@ -5271,7 +5276,7 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
   app: 'Mayordomía IBFILM',
   version: '3.0',
   release: '2026-09-29',
-  channel: 'production-hotfix-cycles'
+  channel: 'production-security'
 });
 </script>
 
@@ -5293,8 +5298,156 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
 })();
 </script>
 
+
+<style id="mayordomia-31a-security-css">
+:root{
+  --auth-navy:#08182d;--auth-navy2:#102c4f;--auth-gold:#e7ad32;--auth-line:#e4e9ef;
+  --auth-text:#101828;--auth-muted:#667085;--auth-bg:#f4f6f9;--auth-green:#178657;--auth-red:#b84049
+}
+body.auth-locked{overflow:hidden}
+body.auth-locked #app-header,
+body.auth-locked #sidebar,
+body.auth-locked #main-content,
+body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!important}
+
+#auth-gate{
+  position:fixed;inset:0;z-index:10000;background:
+    radial-gradient(circle at 85% 12%,rgba(231,173,50,.14),transparent 28%),
+    radial-gradient(circle at 12% 88%,rgba(64,102,151,.16),transparent 30%),
+    linear-gradient(135deg,#f7f9fc,#eef2f7);
+  display:flex;align-items:center;justify-content:center;padding:22px
+}
+#auth-gate.auth-hidden{display:none}
+.auth-shell{width:min(1020px,100%);display:grid;grid-template-columns:1.05fr .95fr;background:#fff;border:1px solid rgba(228,233,239,.9);border-radius:30px;overflow:hidden;box-shadow:0 34px 100px rgba(8,24,45,.16)}
+.auth-brand{
+  min-height:590px;padding:46px;display:flex;flex-direction:column;justify-content:space-between;color:#fff;
+  background:
+    radial-gradient(circle at 82% 18%,rgba(247,209,123,.19),transparent 25%),
+    linear-gradient(145deg,#0f2c4e 0%,#08182d 62%,#06111e 100%)
+}
+.auth-logo{width:58px;height:58px;border-radius:18px;background:linear-gradient(145deg,#f6d17b,#d49a24);display:grid;place-items:center;color:#10233f;box-shadow:0 16px 34px rgba(231,173,50,.16)}
+.auth-logo svg{width:27px;height:27px}
+.auth-brand h1{font-size:2.05rem;line-height:1.12;letter-spacing:-.055em;margin:22px 0 10px;font-weight:800}
+.auth-brand p{color:#b7c5d5;line-height:1.7;font-size:.82rem;max-width:420px}
+.auth-security-list{display:grid;gap:11px;margin-top:28px}
+.auth-security-row{display:flex;gap:10px;align-items:flex-start;color:#d9e2ec;font-size:.72rem}
+.auth-security-row .ic{width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.07);display:grid;place-items:center;color:#f4ca70;flex:0 0 auto}
+.auth-security-row svg{width:14px;height:14px}
+.auth-build{font-size:.62rem;color:#758ba7}
+.auth-form-side{padding:48px 46px;display:flex;flex-direction:column;justify-content:center;background:#fff}
+.auth-kicker{font-size:.64rem;text-transform:uppercase;letter-spacing:.13em;color:#a86b08;font-weight:800}
+.auth-form-side h2{font-size:1.7rem;letter-spacing:-.045em;margin:8px 0 5px;font-weight:800;color:var(--auth-text)}
+.auth-form-side>p{font-size:.76rem;color:var(--auth-muted);margin:0 0 24px;line-height:1.55}
+.auth-field{margin:0 0 14px}
+.auth-field label{display:block;font-size:.65rem;font-weight:750;color:#536278;margin-bottom:6px}
+.auth-input-wrap{position:relative}
+.auth-input-wrap>svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#8794a5}
+.auth-input{
+  width:100%;height:46px;border:1px solid #dce3eb;border-radius:13px;background:#fbfcfe;color:#1d2939;
+  padding:0 42px;font-size:.78rem;outline:none;transition:.15s
+}
+.auth-input:focus{border-color:#d9aa42;box-shadow:0 0 0 3px rgba(231,173,50,.10);background:#fff}
+.auth-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:#77869a;width:34px;height:34px;border-radius:9px;display:grid;place-items:center}
+.auth-eye:hover{background:#f1f4f7}.auth-eye svg{width:16px;height:16px}
+.auth-submit{height:46px;border:0;border-radius:13px;background:linear-gradient(135deg,#f4c65f,#dfa127);color:#14253d;font-weight:800;font-size:.8rem;width:100%;box-shadow:0 10px 24px rgba(223,161,39,.15)}
+.auth-submit:disabled{opacity:.55;cursor:wait}
+.auth-links{display:flex;justify-content:flex-end;margin-top:12px}
+.auth-link{border:0;background:none;color:#9a650a;font-size:.68rem;font-weight:750;padding:3px 0}
+.auth-message{display:none;margin-top:15px;border-radius:13px;padding:11px 12px;font-size:.68rem;line-height:1.5}
+.auth-message.show{display:block}.auth-message.error{background:#fff1f2;color:#a93b44;border:1px solid #f4d3d6}.auth-message.ok{background:#ebf8f1;color:#14744e;border:1px solid #d4efe2}.auth-message.info{background:#f1f6fd;color:#496786;border:1px solid #dde8f5}
+.auth-footer{font-size:.61rem;color:#98a2b3;margin-top:22px;line-height:1.5}
+
+/* perfil en header */
+.v31-profile{position:relative;display:flex;align-items:center;gap:10px}
+.v31-profile-text{text-align:right;line-height:1.18}
+.v31-profile-name{font-size:.69rem;font-weight:800;color:#344054;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v31-profile-role{font-size:.57rem;color:#7a8798;text-transform:capitalize;margin-top:3px}
+#v3-user-avatar{cursor:pointer}
+.v31-profile-menu{display:none;position:absolute;right:0;top:50px;width:250px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px;box-shadow:0 22px 56px rgba(16,24,40,.16);z-index:3000}
+.v31-profile-menu.open{display:block}
+.v31-menu-head{padding:8px 9px 11px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.v31-menu-head strong{display:block;font-size:.72rem}.v31-menu-head small{display:block;color:#7b8798;font-size:.59rem;margin-top:3px;overflow-wrap:anywhere}
+.v31-menu-btn{width:100%;border:0;background:#fff;border-radius:10px;padding:9px 10px;text-align:left;font-size:.67rem;font-weight:700;color:#536278;display:flex;gap:8px;align-items:center}
+.v31-menu-btn:hover{background:#f6f8fb}.v31-menu-btn.danger{color:#af3a43}.v31-menu-btn svg{width:15px;height:15px}
+
+/* Usuarios */
+.v31-security-banner{display:flex;gap:11px;align-items:flex-start;background:#fff8e9;border:1px solid #efd08b;color:#805707;border-radius:15px;padding:12px 14px;font-size:.66rem;line-height:1.55;margin-bottom:14px}
+.v31-security-banner svg{width:17px;height:17px;flex:0 0 auto;margin-top:1px}
+.v31-user-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:14px}
+.v31-user-kpi{background:#fff;border:1px solid var(--border);border-radius:17px;padding:15px;box-shadow:var(--shadow-sm)}
+.v31-user-kpi span{display:block;font-size:.57rem;text-transform:uppercase;letter-spacing:.08em;color:#7b8798;font-weight:750}
+.v31-user-kpi b{display:block;font-size:1.22rem;margin-top:5px;letter-spacing:-.04em}
+.v31-users-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:17px;box-shadow:var(--shadow-sm)}
+.v31-users-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:13px}
+.v31-users-head h3{font-size:.92rem;margin:0;font-weight:800;letter-spacing:-.02em}.v31-users-head p{margin:3px 0 0;font-size:.61rem;color:#7c8999}
+.v31-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:14px}
+.v31-users-table{width:100%;border-collapse:collapse;min-width:800px}
+.v31-users-table th{background:#f8fafc;padding:10px;text-align:left;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:#718095}
+.v31-users-table td{padding:11px 10px;border-top:1px solid var(--border);font-size:.65rem;vertical-align:middle}
+.v31-user-cell{display:flex;gap:9px;align-items:center}.v31-user-avatar{width:34px;height:34px;border-radius:11px;background:#173455;color:#fff;display:grid;place-items:center;font-size:.62rem;font-weight:800}
+.v31-user-name{font-weight:800}.v31-user-email{font-size:.56rem;color:#8490a0;margin-top:2px}
+.v31-role-select{border:1px solid #dfe5ec;border-radius:10px;padding:7px 8px;background:#fff;font-size:.63rem}
+.v31-switch{display:inline-flex;align-items:center;gap:6px;font-size:.61rem;font-weight:700}.v31-switch input{accent-color:#1a9b67}
+.v31-user-actions{display:flex;gap:6px}.v31-user-save{border:0;background:#10233f;color:#fff;border-radius:9px;padding:7px 9px;font-size:.6rem;font-weight:750}.v31-user-save:disabled{opacity:.4}
+.v31-role-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.v31-role-card{border:1px solid var(--border);background:#fff;border-radius:16px;padding:13px}.v31-role-card h4{margin:0 0 5px;font-size:.72rem}.v31-role-card p{font-size:.59rem;color:#78879a;line-height:1.5;margin:0}
+.v31-self{display:inline-flex;padding:4px 6px;border-radius:999px;background:#eef5ff;color:#4e6e97;font-size:.53rem;font-weight:800;margin-left:5px}
+.v31-access-denied{padding:36px;text-align:center;color:#667085}
+.v31-access-denied svg{width:42px;height:42px;color:#9aa8b8;margin-bottom:9px}
+
+/* rol: elementos ocultos */
+[data-role-hidden="true"]{display:none!important}
+
+@media(max-width:850px){
+  .auth-shell{grid-template-columns:1fr;max-width:540px}.auth-brand{min-height:auto;padding:28px}.auth-brand .auth-security-list{display:none}.auth-form-side{padding:30px 26px}.auth-brand h1{font-size:1.55rem;margin-top:16px}.auth-brand p{margin-bottom:0}
+  .v31-profile-text{display:none}.v31-user-kpis{grid-template-columns:1fr 1fr}.v31-role-grid{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  #auth-gate{padding:10px}.auth-shell{border-radius:22px}.auth-brand{padding:23px}.auth-form-side{padding:25px 21px}.auth-brand h1{font-size:1.35rem}
+  .v31-user-kpis{grid-template-columns:1fr}
+}
+</style>
+
 </head>
-<body>
+<body class="auth-locked">
+
+<div id="auth-gate">
+  <div class="auth-shell">
+    <section class="auth-brand">
+      <div>
+        <div class="auth-logo"><i data-lucide="church"></i></div>
+        <h1>Mayordomía<br>IBFILM</h1>
+        <p>Acceso administrativo a tesorería, ofrenda misionera, reportes y operación financiera de la iglesia.</p>
+        <div class="auth-security-list">
+          <div class="auth-security-row"><span class="ic"><i data-lucide="shield-check"></i></span><span>Acceso identificado mediante Firebase Authentication.</span></div>
+          <div class="auth-security-row"><span class="ic"><i data-lucide="user-cog"></i></span><span>Permisos diferenciados para Administrador, Tesorero y Capturista.</span></div>
+          <div class="auth-security-row"><span class="ic"><i data-lucide="history"></i></span><span>Base preparada para la siguiente etapa de auditoría y autorizaciones.</span></div>
+        </div>
+      </div>
+      <div class="auth-build">Mayordomía IBFILM 3.1-A · Seguridad y usuarios</div>
+    </section>
+    <section class="auth-form-side">
+      <div class="auth-kicker">Acceso seguro</div>
+      <h2>Iniciar sesión</h2>
+      <p>Usa las credenciales autorizadas para este sistema.</p>
+      <form id="auth-login-form">
+        <div class="auth-field">
+          <label for="auth-email">Correo electrónico</label>
+          <div class="auth-input-wrap"><i data-lucide="mail"></i><input id="auth-email" class="auth-input" type="email" autocomplete="username" required placeholder="correo@ejemplo.com"></div>
+        </div>
+        <div class="auth-field">
+          <label for="auth-password">Contraseña</label>
+          <div class="auth-input-wrap"><i data-lucide="lock-keyhole"></i><input id="auth-password" class="auth-input" type="password" autocomplete="current-password" required placeholder="••••••••"><button type="button" class="auth-eye" id="auth-eye" aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div>
+        </div>
+        <button class="auth-submit" id="auth-submit" type="submit">Entrar a Mayordomía</button>
+      </form>
+      <div class="auth-links"><button class="auth-link" type="button" id="auth-reset">Olvidé mi contraseña</button></div>
+      <div id="auth-message" class="auth-message"></div>
+      <div class="auth-footer">El acceso se concede únicamente a usuarios activos registrados en la colección <b>usuarios</b>.</div>
+    </section>
+  </div>
+</div>
+
 
 <!-- ══════════ HEADER ══════════ -->
 <header id="app-header">
@@ -5312,7 +5465,15 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
   <div class="v3-header-actions">
     <div id="header-today"></div>
     <div id="sync-status" style="font-size:.65rem;white-space:nowrap;"></div>
-    <div class="v3-avatar" id="v3-user-avatar">ER</div>
+    <div class="v31-profile">
+      <div class="v31-profile-text"><div class="v31-profile-name" id="v31-profile-name">Usuario</div><div class="v31-profile-role" id="v31-profile-role">—</div></div>
+      <div class="v3-avatar" id="v3-user-avatar" onclick="toggleProfileMenu()">U</div>
+      <div class="v31-profile-menu" id="v31-profile-menu">
+        <div class="v31-menu-head"><strong id="v31-menu-name">Usuario</strong><small id="v31-menu-email">—</small></div>
+        <button class="v31-menu-btn" onclick="nav('usuarios')" id="v31-users-menu-btn"><i data-lucide="users-round"></i>Administrar usuarios</button>
+        <button class="v31-menu-btn danger" onclick="mayordomiaLogout()"><i data-lucide="log-out"></i>Cerrar sesión</button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -5337,6 +5498,7 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
   <div class="sidebar-item" data-page="promesas" onclick="nav('promesas')"><span class="si">♡</span> Promesas especiales</div>
   <div class="v3-side-section">Sistema</div>
   <div class="sidebar-item" data-page="respaldo" onclick="nav('respaldo')"><span class="si">☁</span> Respaldo</div>
+  <div class="sidebar-item" data-page="usuarios" onclick="nav('usuarios')"><span class="si"><i data-lucide="users-round"></i></span> Usuarios</div>
   <div class="sidebar-item" data-page="config" onclick="nav('config')"><span class="si">⚙</span> Configuración</div>
 </nav>
 
@@ -5771,7 +5933,7 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
         <div><div class="config-label">Acerca de la app</div></div>
       </div>
       <div class="config-row">
-        <div class="config-label">Versión</div><div style="color:var(--text-3);font-size:.85rem;">3.0 Unificada</div>
+        <div class="config-label">Versión</div><div style="color:var(--text-3);font-size:.85rem;">3.1-A · Seguridad y usuarios</div>
       </div>
       <div class="config-row">
         <div class="config-label">Almacenamiento</div><div style="color:var(--text-3);font-size:.85rem;">Local + Firebase</div>
@@ -5782,6 +5944,46 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
     </div>
   </main>
 
+
+  <!-- ── USUARIOS 3.1-A ── -->
+  <main class="page" id="pg-usuarios">
+    <div class="page-title">Usuarios y permisos</div>
+    <div class="page-sub">Control de acceso administrativo de Mayordomía IBFILM</div>
+
+    <div class="v31-security-banner">
+      <i data-lucide="shield-alert"></i>
+      <div><b>Etapa de transición 3.1-A.</b> El inicio de sesión y los roles ya funcionan en la aplicación. Las reglas de Firestore todavía no deben cerrarse hasta comprobar que tu cuenta Administrador entra correctamente; ese será el siguiente paso.</div>
+    </div>
+
+    <div class="v31-user-kpis">
+      <div class="v31-user-kpi"><span>Usuarios registrados</span><b id="usr-kpi-total">0</b></div>
+      <div class="v31-user-kpi"><span>Activos</span><b id="usr-kpi-active" style="color:#13764e">0</b></div>
+      <div class="v31-user-kpi"><span>Administradores</span><b id="usr-kpi-admin">0</b></div>
+      <div class="v31-user-kpi"><span>Sesión actual</span><b id="usr-kpi-current" style="font-size:.86rem">—</b></div>
+    </div>
+
+    <section class="v31-users-card">
+      <div class="v31-users-head">
+        <div><h3>Usuarios autorizados</h3><p>Estos perfiles corresponden a documentos de la colección <code>usuarios</code>.</p></div>
+        <button class="btn btn-ghost btn-sm" onclick="renderUsuariosAdmin()"><i data-lucide="refresh-cw"></i> Actualizar</button>
+      </div>
+      <div class="v31-table-wrap">
+        <table class="v31-users-table">
+          <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acción</th></tr></thead>
+          <tbody id="usr-table-body"><tr><td colspan="5" class="v31-access-denied">Cargando usuarios…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="notice" style="margin-top:12px;">
+        <b>Alta de nuevas cuentas:</b> durante 3.1-A, la credencial de Authentication se crea desde Firebase Console y después se agrega su documento en <code>usuarios/{UID}</code>. En una etapa posterior podremos incorporar invitaciones administradas desde la app mediante backend.
+      </div>
+    </section>
+
+    <div class="v31-role-grid">
+      <div class="v31-role-card"><h4>Administrador</h4><p>Acceso total, configuración, usuarios, beneficiarios y autorización de dispersiones.</p></div>
+      <div class="v31-role-card"><h4>Tesorero</h4><p>Operación contable completa, beneficiarios y preparación/revisión de dispersiones, sin administración de usuarios ni autorización final.</p></div>
+      <div class="v31-role-card"><h4>Capturista</h4><p>Inicio, Registro rápido, Cierre de culto y captura/consulta básica de Ofrenda Misionera.</p></div>
+    </div>
+  </main>
 
 
   <!-- ── OFRENDA MISIONERA 3.0 · RESUMEN ── -->
@@ -6873,6 +7075,7 @@ function promExportCSV() {
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getAuth, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyD6SYrPApBzjCUOxGN07MDJTJ5-43ovfxI",
@@ -6885,6 +7088,8 @@ function promExportCSV() {
 
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
+    const auth = getAuth(app);
+    setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
     // ── Colecciones ──
     const COL_MOV = 'movimientos';
@@ -6893,12 +7098,333 @@ function promExportCSV() {
     const COL_OM  = 'om_ciclos';
     const COL_OM_PROM = 'om_promesas';
     const COL_MAT_MANUAL = 'om_matriz_manual';
+    const COL_USERS = 'usuarios';
+
+
+    // ── SEGURIDAD 3.1-A: sesión, roles y perfiles ──
+    const ROLE_POLICY = {
+      administrador: {
+        pages: '*',
+        om: '*',
+        permissions: { usersManage:true, dispersionAuthorize:true, beneficiariesManage:true, configManage:true }
+      },
+      tesorero: {
+        pages: ['inicio','om-resumen','colecta','matriz','cierre','registro','egresos','miembros','movimientos','rep-diario','reportes','promesas','respaldo','om-promesas','beneficiarios','dispersion'],
+        om: ['resumen','captura','matriz','ciclos','promesas','beneficiarios','dispersion'],
+        permissions: { usersManage:false, dispersionAuthorize:false, beneficiariesManage:true, configManage:false }
+      },
+      capturista: {
+        pages: ['inicio','om-resumen','colecta','matriz','cierre','registro'],
+        om: ['resumen','captura','matriz'],
+        permissions: { usersManage:false, dispersionAuthorize:false, beneficiariesManage:false, configManage:false }
+      }
+    };
+
+    window.MAYORDOMIA_SECURITY_READY = false;
+    window.MAYORDOMIA_SESSION = null;
+
+    function normalizeRole(r) {
+      r = String(r || '').trim().toLowerCase();
+      return ROLE_POLICY[r] ? r : 'capturista';
+    }
+    function roleLabel(r) {
+      return ({administrador:'Administrador',tesorero:'Tesorero',capturista:'Capturista'})[normalizeRole(r)] || 'Capturista';
+    }
+    function currentPolicy() {
+      const role = window.MAYORDOMIA_SESSION && window.MAYORDOMIA_SESSION.rol;
+      return ROLE_POLICY[normalizeRole(role)] || ROLE_POLICY.capturista;
+    }
+    window.mayordomiaCanAccessPage = function(page) {
+      const p = currentPolicy();
+      return p.pages === '*' || p.pages.includes(page);
+    };
+    window.mayordomiaCanAccessOM = function(section) {
+      const p = currentPolicy();
+      return p.om === '*' || p.om.includes(section);
+    };
+    window.mayordomiaHasPermission = function(name) {
+      const p = currentPolicy();
+      return !!(p.permissions && p.permissions[name]);
+    };
+
+    function initials(name, email) {
+      const src = String(name || '').trim() || String(email || '').split('@')[0] || 'U';
+      return src.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+    }
+    function authMsg(text, type='info') {
+      const el = document.getElementById('auth-message');
+      if (!el) return;
+      el.className = 'auth-message show ' + type;
+      el.textContent = text;
+    }
+    function authBusy(on) {
+      const b = document.getElementById('auth-submit');
+      if (b) { b.disabled = !!on; b.textContent = on ? 'Verificando…' : 'Entrar a Mayordomía'; }
+    }
+    function showAuthGate(message, type='info') {
+      document.body.classList.add('auth-locked');
+      const gate = document.getElementById('auth-gate');
+      if (gate) gate.classList.remove('auth-hidden');
+      if (message) authMsg(message,type);
+      if (window.lucide) lucide.createIcons();
+    }
+    function hideAuthGate() {
+      const gate = document.getElementById('auth-gate');
+      if (gate) gate.classList.add('auth-hidden');
+      document.body.classList.remove('auth-locked');
+    }
+    function formatLastAccess(v) {
+      if (!v) return '—';
+      const d = new Date(v);
+      return isNaN(d) ? String(v) : d.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+    }
+
+    function applyRoleUI() {
+      const session = window.MAYORDOMIA_SESSION;
+      if (!session) return;
+      const role = session.rol;
+
+      document.querySelectorAll('.sidebar-item[data-page],.bnav-item[data-page]').forEach(el => {
+        const allowed = window.mayordomiaCanAccessPage(el.dataset.page);
+        el.dataset.roleHidden = allowed ? 'false' : 'true';
+      });
+
+      // Acciones rápidas del dashboard.
+      document.querySelectorAll('.action-btn').forEach(btn => {
+        const oc = btn.getAttribute('onclick') || '';
+        let allowed = true;
+        const nm = oc.match(/nav\(['"]([^'"]+)['"]\)/);
+        const om = oc.match(/omGo\(['"]([^'"]+)['"]\)/);
+        if (nm) allowed = window.mayordomiaCanAccessPage(nm[1]);
+        if (om) allowed = window.mayordomiaCanAccessOM(om[1]);
+        btn.dataset.roleHidden = allowed ? 'false' : 'true';
+      });
+
+      // Tabs de Ofrenda Misionera.
+      document.querySelectorAll('.v3-om-tab').forEach(btn => {
+        const oc = btn.getAttribute('onclick') || '';
+        const m = oc.match(/omGo\(['"]([^'"]+)['"]\)/);
+        if (m) btn.dataset.roleHidden = window.mayordomiaCanAccessOM(m[1]) ? 'false' : 'true';
+      });
+
+      const usersMenu = document.getElementById('v31-users-menu-btn');
+      if (usersMenu) usersMenu.style.display = window.mayordomiaHasPermission('usersManage') ? '' : 'none';
+
+      // Perfil
+      const name = session.nombre || session.email || 'Usuario';
+      const label = roleLabel(role);
+      const ids = {
+        'v31-profile-name': name, 'v31-profile-role': label, 'v31-menu-name': name,
+        'v31-menu-email': session.email || '', 'v3-user-avatar': initials(name,session.email)
+      };
+      Object.entries(ids).forEach(([id,val]) => { const el=document.getElementById(id); if(el) el.textContent=val; });
+
+      // Administrador es el único que ve Usuarios/Configuración.
+      const cfg = document.querySelector('.sidebar-item[data-page="config"]');
+      if (cfg) cfg.dataset.roleHidden = window.mayordomiaCanAccessPage('config') ? 'false' : 'true';
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    window.toggleProfileMenu = function() {
+      document.getElementById('v31-profile-menu')?.classList.toggle('open');
+    };
+    document.addEventListener('click', e => {
+      const box = document.querySelector('.v31-profile');
+      if (box && !box.contains(e.target)) document.getElementById('v31-profile-menu')?.classList.remove('open');
+    });
+
+    window.mayordomiaLogout = async function() {
+      document.getElementById('v31-profile-menu')?.classList.remove('open');
+      await signOut(auth);
+    };
+
+    async function loadUserProfile(user) {
+      const ref = doc(db, COL_USERS, user.uid);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        throw Object.assign(new Error('Tu cuenta existe en Authentication, pero no tiene un perfil en usuarios/{UID}.'), {code:'profile-missing'});
+      }
+      const data = snap.data() || {};
+      if (data.activo !== true) {
+        throw Object.assign(new Error('Esta cuenta está inactiva. Solicita acceso a un Administrador.'), {code:'profile-inactive'});
+      }
+      const profile = {
+        uid:user.uid,
+        email:user.email || data.email || '',
+        nombre:data.nombre || user.displayName || user.email || 'Usuario',
+        rol:normalizeRole(data.rol),
+        activo:true
+      };
+      window.MAYORDOMIA_SESSION = profile;
+      window.MAYORDOMIA_SECURITY_READY = true;
+      applyRoleUI();
+
+      // Registrar actividad sin alterar rol/estado.
+      try {
+        await setDoc(ref, {
+          uid:user.uid,
+          email:profile.email,
+          ultimoAcceso:new Date().toISOString()
+        }, {merge:true});
+      } catch(e) {}
+
+      return profile;
+    }
+
+    // Gestión de usuarios (sólo UI administrador por ahora; reglas definitivas siguen pendientes).
+    window.renderUsuariosAdmin = async function() {
+      const body = document.getElementById('usr-table-body');
+      if (!body) return;
+      if (!window.mayordomiaHasPermission('usersManage')) {
+        body.innerHTML = '<tr><td colspan="5"><div class="v31-access-denied">Tu rol no tiene acceso a la administración de usuarios.</div></td></tr>';
+        return;
+      }
+      body.innerHTML = '<tr><td colspan="5" style="padding:18px;color:#7b8798;">Cargando usuarios…</td></tr>';
+      try {
+        const snap = await getDocs(collection(db,COL_USERS));
+        const rows = [];
+        snap.forEach(d => rows.push(Object.assign({uid:d.id},d.data()||{})));
+        rows.sort((a,b)=>String(a.nombre||a.email||'').localeCompare(String(b.nombre||b.email||''),'es'));
+        const cur = auth.currentUser && auth.currentUser.uid;
+
+        const total=rows.length, active=rows.filter(x=>x.activo===true).length, admins=rows.filter(x=>normalizeRole(x.rol)==='administrador'&&x.activo===true).length;
+        [['usr-kpi-total',total],['usr-kpi-active',active],['usr-kpi-admin',admins],['usr-kpi-current',roleLabel(window.MAYORDOMIA_SESSION?.rol)]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent=v});
+
+        if (!rows.length) {
+          body.innerHTML='<tr><td colspan="5" class="v31-access-denied">No hay perfiles en la colección usuarios.</td></tr>';
+          return;
+        }
+        body.innerHTML = rows.map(u => {
+          const self = u.uid===cur;
+          const role=normalizeRole(u.rol);
+          const name=String(u.nombre||u.email||'Usuario');
+          return `<tr>
+            <td><div class="v31-user-cell"><div class="v31-user-avatar">${initials(name,u.email)}</div><div><div class="v31-user-name">${escapeHtml(name)}${self?'<span class="v31-self">Tú</span>':''}</div><div class="v31-user-email">${escapeHtml(u.email||u.uid)}</div></div></div></td>
+            <td><select class="v31-role-select" id="usr-role-${u.uid}" ${self?'disabled':''}><option value="administrador" ${role==='administrador'?'selected':''}>Administrador</option><option value="tesorero" ${role==='tesorero'?'selected':''}>Tesorero</option><option value="capturista" ${role==='capturista'?'selected':''}>Capturista</option></select></td>
+            <td><label class="v31-switch"><input type="checkbox" id="usr-active-${u.uid}" ${u.activo===true?'checked':''} ${self?'disabled':''}> ${u.activo===true?'Activo':'Inactivo'}</label></td>
+            <td>${formatLastAccess(u.ultimoAcceso)}</td>
+            <td><div class="v31-user-actions"><button class="v31-user-save" ${self?'disabled':''} onclick="guardarPerfilUsuario('${u.uid}')">Guardar</button></div></td>
+          </tr>`;
+        }).join('');
+        if (window.lucide) lucide.createIcons();
+      } catch(e) {
+        body.innerHTML='<tr><td colspan="5" style="padding:16px;color:#b84049;">No se pudo leer usuarios: '+escapeHtml(e.message||e.code||'error')+'</td></tr>';
+      }
+    };
+
+    window.guardarPerfilUsuario = async function(uid) {
+      if (!window.mayordomiaHasPermission('usersManage')) return toast('No tienes permiso para administrar usuarios.','warn');
+      if (auth.currentUser && uid===auth.currentUser.uid) return toast('Por seguridad, tu propio rol y estado no se modifican desde esta pantalla.','warn');
+      const rol = normalizeRole(document.getElementById('usr-role-'+uid)?.value);
+      const activo = !!document.getElementById('usr-active-'+uid)?.checked;
+      try {
+        await setDoc(doc(db,COL_USERS,uid), {rol,activo,updatedAt:new Date().toISOString(),updatedBy:auth.currentUser?.uid||null}, {merge:true});
+        toast('Permisos de usuario actualizados.');
+        window.renderUsuariosAdmin();
+      } catch(e) {
+        toast('No se pudo actualizar el usuario: '+firebaseErrorLabel(e),'error');
+      }
+    };
+
+    // Helper de escape para tablas de usuario.
+    function escapeHtml(s) {
+      return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // Login
+    document.getElementById('auth-login-form')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      authBusy(true);
+      const email = document.getElementById('auth-email')?.value.trim();
+      const password = document.getElementById('auth-password')?.value || '';
+      authMsg('Verificando credenciales…','info');
+      try {
+        await signInWithEmailAndPassword(auth,email,password);
+        // onAuthStateChanged terminará el proceso.
+      } catch(err) {
+        const code=String(err.code||'');
+        const msg = code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')
+          ? 'Correo o contraseña incorrectos.'
+          : code.includes('too-many-requests')
+            ? 'Demasiados intentos. Espera unos minutos antes de volver a intentar.'
+            : 'No se pudo iniciar sesión: '+(err.message||code);
+        authMsg(msg,'error');
+        authBusy(false);
+      }
+    });
+
+    document.getElementById('auth-eye')?.addEventListener('click', () => {
+      const i=document.getElementById('auth-password');
+      if(!i)return;
+      i.type=i.type==='password'?'text':'password';
+      const b=document.getElementById('auth-eye');
+      b.innerHTML=`<i data-lucide="${i.type==='password'?'eye':'eye-off'}"></i>`;
+      if(window.lucide)lucide.createIcons();
+    });
+
+    document.getElementById('auth-reset')?.addEventListener('click', async () => {
+      const email=document.getElementById('auth-email')?.value.trim();
+      if(!email)return authMsg('Escribe tu correo primero para enviar el enlace de recuperación.','info');
+      try {
+        await sendPasswordResetEmail(auth,email);
+        authMsg('Firebase envió el correo para restablecer la contraseña.','ok');
+      } catch(e) {
+        authMsg('No se pudo enviar el correo de recuperación. Verifica la dirección.','error');
+      }
+    });
+
+    let dataBooted = false;
+    async function bootDataAfterAuth() {
+      if (dataBooted) return;
+      dataBooted = true;
+      setTimeout(async () => {
+        await syncFromCloud();
+        startRealtimeSync();
+      }, 250);
+      setTimeout(() => { if (window.fbFlushMatManualPending) window.fbFlushMatManualPending(); }, 1800);
+      setInterval(() => {
+        if (auth.currentUser && navigator.onLine && window.fbFlushMatManualPending) window.fbFlushMatManualPending();
+      }, 15000);
+    }
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        window.MAYORDOMIA_SESSION=null;
+        window.MAYORDOMIA_SECURITY_READY=false;
+        dataBooted=false;
+        authBusy(false);
+        showAuthGate();
+        return;
+      }
+      authBusy(true);
+      authMsg('Validando perfil y permisos…','info');
+      try {
+        const profile=await loadUserProfile(user);
+        hideAuthGate();
+        authBusy(false);
+        if (typeof applyConfig==='function') applyConfig();
+        if (typeof renderDash==='function') renderDash();
+        const hp=document.getElementById('v3-header-page'); if(hp)hp.textContent='Panel de Control';
+        await bootDataAfterAuth();
+        setTimeout(()=>{applyRoleUI(); if(window.lucide)lucide.createIcons();},350);
+      } catch(err) {
+        const reason=err.code==='profile-missing'
+          ? 'Tu usuario de Authentication no tiene un documento de perfil con el mismo UID en la colección usuarios.'
+          : err.code==='profile-inactive'
+            ? 'Tu cuenta está marcada como inactiva.'
+            : 'No fue posible validar tu perfil de Mayordomía.';
+        await signOut(auth).catch(()=>{});
+        authBusy(false);
+        showAuthGate(reason,'error');
+      }
+    });
 
     // ── Sync status indicator ──
     function setSyncStatus(ok, msg) {
       const el = document.getElementById('sync-status');
       if (el) {
-        el.textContent = ok ? '☁️ ' + msg : '⚠️ ' + msg;
+        el.textContent = msg;
         el.style.color = ok ? '#1d7a4e' : '#d97706';
       }
     }
@@ -7514,21 +8040,13 @@ function promExportCSV() {
       }
     };
 
-    // ── Iniciar sincronización al cargar ──
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(async () => {
-        await syncFromCloud();
-        startRealtimeSync();
-      }, 1500);
-      setTimeout(() => { if (window.fbFlushMatManualPending) window.fbFlushMatManualPending(); }, 3500);
-      setInterval(() => { if (navigator.onLine && window.fbFlushMatManualPending) window.fbFlushMatManualPending(); }, 15000);
-    });
+    // ── Conectividad: la sincronización de datos inicia únicamente después de autenticar ──
     window.addEventListener('online', () => {
-      if (window.fbFlushMatManualPending) window.fbFlushMatManualPending();
-      setSyncStatus(true, 'Reconectando…');
+      if (auth.currentUser && window.fbFlushMatManualPending) window.fbFlushMatManualPending();
+      if (auth.currentUser) setSyncStatus(true, 'Reconectando…');
     });
     window.addEventListener('offline', () => {
-      setSyncStatus(false, 'Sin conexión — trabajando localmente');
+      if (auth.currentUser) setSyncStatus(false, 'Sin conexión — trabajando localmente');
     });
   </script>
 
@@ -8078,6 +8596,11 @@ function omShowDirectPageV3(pageId, activeKey) {
 }
 
 function omGo(section) {
+  if (window.MAYORDOMIA_SECURITY_READY && typeof window.mayordomiaCanAccessOM === 'function' && !window.mayordomiaCanAccessOM(section)) {
+    toast('Tu rol no tiene permiso para esta sección de Ofrenda Misionera.','warn');
+    nav('om-resumen');
+    return;
+  }
   const ciclo = omEnsureActiveCycleV3();
   if (section === 'resumen') { nav('om-resumen'); return; }
   if (section === 'ciclos') {
@@ -8312,9 +8835,18 @@ function dispRevisar(){
     v.items.map(x=>'<div class="v3-review-line"><span>'+omHtml(x.b.nombre)+' · '+(x.b.ultimos4?'•••• '+omHtml(x.b.ultimos4):'sin cuenta')+'</span><strong>'+fmt(x.monto)+'</strong></div>').join('')+
     '<div class="v3-review-line total"><span>Total preparado</span><span>'+fmt(v.total)+'</span></div>';
   document.getElementById('disp3-review-validation').innerHTML=v.ok?'<div class="v3-validation ok">Validación operativa superada. Sigue siendo una simulación sin transferencia bancaria.</div>':'<div class="v3-validation bad">El lote tiene observaciones. Corrígelas antes de autorizar la simulación.</div>';
-  const btn=document.getElementById('disp3-authorize-btn');btn.disabled=!v.ok;btn.style.opacity=v.ok?'1':'.45';openModal('m-dispersion-review');
+  const btn=document.getElementById('disp3-authorize-btn');
+  const canAuthorize = !window.MAYORDOMIA_SECURITY_READY || (typeof window.mayordomiaHasPermission==='function' && window.mayordomiaHasPermission('dispersionAuthorize'));
+  btn.disabled=!v.ok || !canAuthorize;
+  btn.style.opacity=(v.ok&&canAuthorize)?'1':'.45';
+  btn.textContent=canAuthorize?'Autorizar simulación':'Requiere Administrador';
+  openModal('m-dispersion-review');
 }
 function dispAutorizarSimulacion(){
+  if (window.MAYORDOMIA_SECURITY_READY && typeof window.mayordomiaHasPermission==='function' && !window.mayordomiaHasPermission('dispersionAuthorize')) {
+    toast('La autorización final requiere rol Administrador.','warn');
+    return;
+  }
   const v=dispValidationV3(),c=omEnsureActiveCycleV3();if(!v.ok){toast('El lote no supera las validaciones.','warn');return}
   const all=loadDispersionesV3(),n=new Date();const folio='SIM-'+n.getFullYear()+String(n.getMonth()+1).padStart(2,'0')+String(n.getDate()).padStart(2,'0')+'-'+String(all.length+1).padStart(3,'0');
   all.unshift({id:'disp_'+uid(),folio,fecha:n.toISOString(),cicloId:c?.id||null,cicloNombre:c?.nombre||'',total:v.total,estado:'simulada',items:v.items.map(x=>({beneficiarioId:x.b.id,nombre:x.b.nombre,monto:x.monto,banco:x.b.banco||'',ultimos4:x.b.ultimos4||''}))});
@@ -8350,7 +8882,7 @@ function omVolverACiclos() {
   const ICONS={
     inicio:'house', registro:'zap', egresos:'arrow-up-from-line', miembros:'users',
     movimientos:'arrow-left-right', 'rep-diario':'calendar-days', reportes:'chart-no-axes-column',
-    respaldo:'cloud', config:'settings', colecta:'globe-2', 'om-resumen':'globe-2',
+    respaldo:'cloud', usuarios:'users-round', config:'settings', colecta:'globe-2', 'om-resumen':'globe-2',
     matriz:'layout-grid', cierre:'landmark', promesas:'target'
   };
   const ACTION_ICONS={
@@ -8361,7 +8893,7 @@ function omVolverACiclos() {
   const PAGE_ICONS={
     'pg-registro':'zap','pg-egresos':'arrow-up-from-line','pg-miembros':'users',
     'pg-movimientos':'arrow-left-right','pg-rep-diario':'calendar-days','pg-reportes':'chart-no-axes-column',
-    'pg-respaldo':'cloud','pg-config':'settings','pg-om-resumen':'globe-2','pg-colecta-ciclos':'calendar-range',
+    'pg-respaldo':'cloud','pg-usuarios':'users-round','pg-config':'settings','pg-om-resumen':'globe-2','pg-colecta-ciclos':'calendar-range',
     'pg-colecta':'hand-coins','pg-matriz':'layout-grid','pg-om-promesas':'heart-handshake',
     'pg-beneficiarios':'users-round','pg-dispersion':'send','pg-cierre':'landmark','pg-promesas':'target'
   };
