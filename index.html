@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- MAYORDOMÍA IBFILM 3.1-B.1 · FIX SYNC BENEFICIARIOS/DISPERSIÓN · 2026-10-03 -->
+<!-- MAYORDOMÍA IBFILM 3.1-B.2 · FIX SALDO REAL DE DISPERSIÓN · 2026-10-03 -->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -13,7 +13,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="description" content="Mayordomía IBFILM 3.0 — Sistema integral de tesorería, ofrenda misionera, reportes y control administrativo">
 
-  <title>Mayordomía IBFILM 3.1-B.1</title>
+  <title>Mayordomía IBFILM 3.1-B.2</title>
 
   <!-- Styles -->
   <style>
@@ -2947,7 +2947,7 @@ function testStorage() {
 
 function exportarJSON() {
   const data = {
-    app: 'Mayordomía IBFILM', version: '3.1-B.1',
+    app: 'Mayordomía IBFILM', version: '3.1-B.2',
     fecha: new Date().toISOString(),
     movimientos: loadMov(), miembros: loadMem(), config: loadConfig(),
     ciclosMisioneros: (typeof loadOMCiclos === 'function' ? loadOMCiclos() : []),
@@ -5276,7 +5276,7 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
   app: 'Mayordomía IBFILM',
   version: '3.0',
   release: '2026-09-29',
-  channel: 'security-beneficiaries-syncfix'
+  channel: 'dispersion-balance-fix'
 });
 </script>
 
@@ -5440,7 +5440,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
           <div class="auth-security-row"><span class="ic"><i data-lucide="history"></i></span><span>Base preparada para la siguiente etapa de auditoría y autorizaciones.</span></div>
         </div>
       </div>
-      <div class="auth-build">Mayordomía IBFILM 3.1-B.1 · Sincronización segura</div>
+      <div class="auth-build">Mayordomía IBFILM 3.1-B.2 · Saldo real de dispersión</div>
     </section>
     <section class="auth-form-side">
       <div class="auth-kicker">Acceso seguro</div>
@@ -6294,7 +6294,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
   <button class="v3-om-tab" onclick="omGo('beneficiarios')">Beneficiarios</button>
   <button class="v3-om-tab active" onclick="omGo('dispersion')">Dispersión</button>
 </div>
-    <div class="v3-security"><strong>Flujo protegido:</strong> los lotes se guardan en Firestore con usuario preparador y autorización administrativa. Esta versión todavía no envía dinero ni contiene credenciales bancarias; la ejecución SPEI se conectará posteriormente desde un backend seguro.</div>
+    <div class="v3-security"><strong>Flujo protegido:</strong> el disponible parte del saldo contable real del ciclo (ingresos menos egresos) y sólo descuenta además los lotes abiertos que aún no tienen un egreso real. Esta versión todavía no envía dinero ni contiene credenciales bancarias.</div>
     <div class="v3-kpi-grid">
       <div class="v3-kpi"><div class="v3-kpi-label">Disponible del ciclo</div><div class="v3-kpi-value" id="disp3-disponible">$0.00</div><div class="v3-kpi-sub" id="disp3-ciclo">Sin ciclo seleccionado</div></div>
       <div class="v3-kpi"><div class="v3-kpi-label">Seleccionados</div><div class="v3-kpi-value" id="disp3-count">0</div><div class="v3-kpi-sub">Beneficiarios del lote</div></div>
@@ -9045,12 +9045,37 @@ async function archivarBeneficiarioV3(id){
 ══════════════════════════════════════════════════════ */
 function loadDispersionesV3(){try{return JSON.parse(localStorage.getItem(K_OM_DISP_V3)||'[]')}catch(e){return[]}}
 function saveDispersionesV3(d){localStorage.setItem(K_OM_DISP_V3,JSON.stringify(d||[]))}
+function omSaldoContableCicloV3(ciclo){
+  if(!ciclo)return 0;
+  const etiqueta='Ofrenda Misionera '+ciclo.nombre;
+  return loadMov().reduce((saldo,m)=>{
+    if(!m)return saldo;
+    let concepto=(m.concepto&&m.concepto!==m.categoria)?m.concepto:(m.categoria||m.concepto||'');
+    const pertenece=
+      m.cicloId===ciclo.id ||
+      m.cicloNombre===etiqueta ||
+      m.origen===('ofrenda-misionera-'+ciclo.id) ||
+      concepto===etiqueta;
+    if(!pertenece)return saldo;
+    const monto=parseFloat(m.monto||0)||0;
+    return saldo+(m.tipo==='Ingreso'?monto:(m.tipo==='Egreso'?-monto:0));
+  },0);
+}
+function omReservaDispersionV3(ciclo){
+  if(!ciclo)return 0;
+  // Sólo se reserva dinero aún no reflejado como egreso contable.
+  // Cuando una dispersión se complete y genere su egreso real, deja de reservarse
+  // para evitar restar el mismo dinero dos veces.
+  const reservados=new Set(['pendiente_autorizacion','autorizada','en_proceso']);
+  return loadDispersionesV3()
+    .filter(d=>d&&d.cicloId===ciclo.id&&reservados.has(d.estado))
+    .reduce((s,d)=>s+(parseFloat(d.total||0)||0),0);
+}
 function omDisponibleCicloV3(){
   const ciclo=omEnsureActiveCycleV3();if(!ciclo)return 0;
-  const ingresos=omMissionMovsV3(ciclo).reduce((s,m)=>s+(parseFloat(m.monto||0)||0),0);
-  const reservados=new Set(['pendiente_autorizacion','autorizada','en_proceso','completada']);
-  const lotes=loadDispersionesV3().filter(d=>d&&d.cicloId===ciclo.id&&reservados.has(d.estado)).reduce((s,d)=>s+(parseFloat(d.total||0)||0),0);
-  return Math.max(0,ingresos-lotes);
+  const saldoContable=omSaldoContableCicloV3(ciclo);
+  const reservado=omReservaDispersionV3(ciclo);
+  return Math.max(0,saldoContable-reservado);
 }
 function dispItemsV3(){
   const ben=loadBeneficiariosV3();
@@ -9075,10 +9100,19 @@ function dispStatusV3(estado){
   return m[estado]||[String(estado||'Borrador').replaceAll('_',' '),'legacy'];
 }
 function dispHistoryActionsV3(d){
-  if(!d||d.estado!=='pendiente_autorizacion')return '';
+  if(!d)return '';
   const canAuth=window.MAYORDOMIA_SECURITY_READY&&window.mayordomiaHasPermission&&window.mayordomiaHasPermission('dispersionAuthorize');
-  if(!canAuth)return '<div class="v31b-history-actions"><span class="v3-cycle-meta">Esperando Administrador</span></div>';
-  return '<div class="v31b-history-actions"><button class="v31b-mini-btn danger" onclick="dispRechazarLote(\''+omJs(d.id)+'\')">Rechazar</button><button class="v31b-mini-btn primary" onclick="dispAutorizarLote(\''+omJs(d.id)+'\')">Autorizar</button></div>';
+
+  if(d.estado==='pendiente_autorizacion'){
+    if(!canAuth)return '<div class="v31b-history-actions"><span class="v3-cycle-meta">Esperando Administrador</span></div>';
+    return '<div class="v31b-history-actions"><button class="v31b-mini-btn danger" onclick="dispRechazarLote(\''+omJs(d.id)+'\')">Rechazar</button><button class="v31b-mini-btn primary" onclick="dispAutorizarLote(\''+omJs(d.id)+'\')">Autorizar</button></div>';
+  }
+
+  if(d.estado==='autorizada' && canAuth){
+    return '<div class="v31b-history-actions"><button class="v31b-mini-btn danger" onclick="dispCancelarLote(\''+omJs(d.id)+'\')">Cancelar lote</button></div>';
+  }
+
+  return '';
 }
 function renderDispersionV3(){
   const ciclo=omEnsureActiveCycleV3(),val=dispValidationV3(),hist=loadDispersionesV3();
@@ -9097,7 +9131,8 @@ function renderDispersionV3(){
     '<div class="v3-validation '+(val.items.length?'ok':'warn')+'">'+(val.items.length?val.items.length+' beneficiario(s) seleccionado(s)':'Selecciona al menos un beneficiario')+'</div>'+
     '<div class="v3-validation '+(val.invalid.length?'bad':'ok')+'">'+(val.invalid.length?'Hay beneficiarios con datos incompletos o monto inválido':'Todos los seleccionados están listos')+'</div>'+
     '<div class="v3-validation '+(val.dup.length?'bad':'ok')+'">'+(val.dup.length?'Revisa cuentas visibles repetidas':'Sin cuentas visibles duplicadas')+'</div>'+
-    '<div class="v3-validation '+(val.total>val.available?'bad':'ok')+'">'+(val.total>val.available?'El lote excede el disponible por '+fmt(val.total-val.available):'El total no excede el disponible del ciclo')+'</div>';
+    '<div class="v3-validation '+(val.total>val.available?'bad':'ok')+'">'+(val.total>val.available?'El lote excede el disponible por '+fmt(val.total-val.available):'El total no excede el disponible del ciclo')+'</div>'+
+    '<div class="v3-validation ok">Saldo contable: '+fmt(omSaldoContableCicloV3(ciclo))+' · Reservado en lotes abiertos: '+fmt(omReservaDispersionV3(ciclo))+'</div>';
   const hh=document.getElementById('disp3-history');
   if(hh)hh.innerHTML=hist.length?hist.slice().sort((a,b)=>new Date(b.fecha||b.updatedAt||0)-new Date(a.fecha||a.updatedAt||0)).slice(0,20).map(d=>{
     const st=dispStatusV3(d.estado);
@@ -9157,6 +9192,24 @@ async function dispRechazarLote(id){
   saveDispersionesV3(all);
   const ok=typeof window.fbSaveDispersion==='function'?await window.fbSaveDispersion(d,'dispersion_rechazada'):false;
   renderDispersionV3();toast(ok?'Lote rechazado':'Rechazo local pendiente de sincronizar','warn');
+}
+async function dispCancelarLote(id){
+  if(!window.mayordomiaHasPermission||!window.mayordomiaHasPermission('dispersionAuthorize')){toast('Sólo Administrador puede cancelar lotes autorizados.','warn');return}
+  const all=loadDispersionesV3(),d=all.find(x=>x.id===id);
+  if(!d||d.estado!=='autorizada')return;
+  if(!confirm('¿Cancelar el lote '+(d.folio||d.id)+' por '+fmt(d.total)+'?\n\nEsto libera el monto reservado. No borra el lote ni altera movimientos contables.'))return;
+  const actor=window.MAYORDOMIA_SESSION||{},now=new Date().toISOString();
+  d.estado='cancelada';
+  d.cancelledBy=actor.uid||null;
+  d.cancelledByName=actor.nombre||'';
+  d.cancelledAt=now;
+  d.cancelReason='Cancelación administrativa';
+  d.updatedAt=now;
+  saveDispersionesV3(all);
+  const ok=typeof window.fbSaveDispersion==='function'?await window.fbSaveDispersion(d,'dispersion_cancelada'):false;
+  renderDispersionV3();
+  if(typeof renderDash==='function')renderDash();
+  toast(ok?'Lote cancelado. El monto reservado fue liberado.':'Cancelación local pendiente de sincronizar','warn');
 }
 // Alias de compatibilidad con 3.1-A.
 function dispAutorizarSimulacion(){ return dispCrearLotePendiente(); }
