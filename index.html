@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- MAYORDOMÍA IBFILM 3.1-A · AUTH + USUARIOS + ROLES · 2026-09-30 -->
+<!-- MAYORDOMÍA IBFILM 3.1-B.1 · FIX SYNC BENEFICIARIOS/DISPERSIÓN · 2026-10-03 -->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -13,7 +13,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="description" content="Mayordomía IBFILM 3.0 — Sistema integral de tesorería, ofrenda misionera, reportes y control administrativo">
 
-  <title>Mayordomía IBFILM 3.1-A</title>
+  <title>Mayordomía IBFILM 3.1-B.1</title>
 
   <!-- Styles -->
   <style>
@@ -1808,7 +1808,7 @@ function nav(id) {
   if (id === 'reportes')     initRepGeneral();
   if (id === 'respaldo')     updateBackupStats();
   if (id === 'config')       applyConfig();
-  if (id === 'usuarios' && typeof window.renderUsuariosAdmin === 'function') window.renderUsuariosAdmin();
+  if (id === 'usuarios' && typeof window.renderUsuariosAdmin === 'function') { window.renderUsuariosAdmin(); if (typeof window.renderAuditoriaAdmin === 'function') window.renderAuditoriaAdmin(); }
   if (id === 'colecta') {
     // Si hay ciclo activo seleccionado, ir directo; si no, mostrar selector
     if (window.omCicloActivo) { initColecta(); }
@@ -2947,7 +2947,7 @@ function testStorage() {
 
 function exportarJSON() {
   const data = {
-    app: 'Mayordomía IBFILM', version: '3.1-A',
+    app: 'Mayordomía IBFILM', version: '3.1-B.1',
     fecha: new Date().toISOString(),
     movimientos: loadMov(), miembros: loadMem(), config: loadConfig(),
     ciclosMisioneros: (typeof loadOMCiclos === 'function' ? loadOMCiclos() : []),
@@ -5276,7 +5276,7 @@ window.MAYORDOMIA_RELEASE = Object.freeze({
   app: 'Mayordomía IBFILM',
   version: '3.0',
   release: '2026-09-29',
-  channel: 'production-security'
+  channel: 'security-beneficiaries-syncfix'
 });
 </script>
 
@@ -5408,6 +5408,22 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
 }
 </style>
 
+
+<style id="mayordomia-31b-css">
+.v31b-syncline{display:flex;align-items:center;gap:7px;font-size:.61rem;color:#65758a;margin-top:5px}
+.v31b-syncdot{width:7px;height:7px;border-radius:50%;background:#1d9c69;box-shadow:0 0 0 3px rgba(29,156,105,.10)}
+.v31b-history-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:7px}
+.v31b-mini-btn{border:1px solid var(--border);background:#fff;border-radius:8px;padding:5px 8px;font-size:.56rem;font-weight:750;color:#526377;cursor:pointer}
+.v31b-mini-btn:hover{background:#f6f8fb}.v31b-mini-btn.primary{background:#10233f;color:#fff;border-color:#10233f}.v31b-mini-btn.danger{color:#aa3d46}
+.v31b-audit-list{display:grid;gap:8px}
+.v31b-audit-row{display:grid;grid-template-columns:34px 1fr auto;gap:9px;align-items:start;padding:10px;border:1px solid var(--border);border-radius:13px;background:#fbfcfe}
+.v31b-audit-icon{width:34px;height:34px;border-radius:10px;background:#eef3f9;display:grid;place-items:center;color:#355371}.v31b-audit-icon svg{width:15px;height:15px}
+.v31b-audit-title{font-size:.65rem;font-weight:800}.v31b-audit-meta{font-size:.56rem;color:#8390a0;margin-top:3px;line-height:1.45}.v31b-audit-time{font-size:.54rem;color:#8d98a6;white-space:nowrap}
+.v31b-status{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;font-size:.53rem;font-weight:800}
+.v31b-status.pending{background:#fff5dc;color:#8b6109}.v31b-status.authorized{background:#e9f7ef;color:#13734c}.v31b-status.rejected{background:#fff0f1;color:#a33c45}.v31b-status.legacy{background:#eef2f7;color:#617084}.v31b-status.process{background:#edf4ff;color:#37638d}
+@media(max-width:720px){.v31b-audit-row{grid-template-columns:34px 1fr}.v31b-audit-time{grid-column:2}}
+</style>
+
 </head>
 <body class="auth-locked">
 
@@ -5424,7 +5440,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
           <div class="auth-security-row"><span class="ic"><i data-lucide="history"></i></span><span>Base preparada para la siguiente etapa de auditoría y autorizaciones.</span></div>
         </div>
       </div>
-      <div class="auth-build">Mayordomía IBFILM 3.1-A · Seguridad y usuarios</div>
+      <div class="auth-build">Mayordomía IBFILM 3.1-B.1 · Sincronización segura</div>
     </section>
     <section class="auth-form-side">
       <div class="auth-kicker">Acceso seguro</div>
@@ -5933,7 +5949,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
         <div><div class="config-label">Acerca de la app</div></div>
       </div>
       <div class="config-row">
-        <div class="config-label">Versión</div><div style="color:var(--text-3);font-size:.85rem;">3.1-A · Seguridad y usuarios</div>
+        <div class="config-label">Versión</div><div style="color:var(--text-3);font-size:.85rem;">3.1-B · Beneficiarios y dispersión</div>
       </div>
       <div class="config-row">
         <div class="config-label">Almacenamiento</div><div style="color:var(--text-3);font-size:.85rem;">Local + Firebase</div>
@@ -5983,6 +5999,14 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
       <div class="v31-role-card"><h4>Tesorero</h4><p>Operación contable completa, beneficiarios y preparación/revisión de dispersiones, sin administración de usuarios ni autorización final.</p></div>
       <div class="v31-role-card"><h4>Capturista</h4><p>Inicio, Registro rápido, Cierre de culto y captura/consulta básica de Ofrenda Misionera.</p></div>
     </div>
+
+    <section class="v31-users-card" style="margin-top:14px" id="v31b-audit-panel">
+      <div class="v31-users-head">
+        <div><h3>Bitácora de seguridad</h3><p>Acciones sensibles registradas con usuario y hora del servidor.</p></div>
+        <button class="btn btn-ghost btn-sm" onclick="renderAuditoriaAdmin()"><i data-lucide="refresh-cw"></i> Actualizar</button>
+      </div>
+      <div id="v31b-audit-list" class="v31b-audit-list"><div class="v3-empty">Cargando actividad…</div></div>
+    </section>
   </main>
 
 
@@ -6238,7 +6262,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
   <button class="v3-om-tab active" onclick="omGo('beneficiarios')">Beneficiarios</button>
   <button class="v3-om-tab" onclick="omGo('dispersion')">Dispersión</button>
 </div>
-    <div class="v3-security"><strong>Protección bancaria:</strong> por ahora guarda solamente banco/alias y últimos 4 dígitos. No captures CLABE, cuenta completa, contraseñas ni tokens mientras Firestore no tenga autenticación y reglas privadas.</div>
+    <div class="v3-security"><strong>Catálogo privado sincronizado:</strong> los beneficiarios se guardan en Firestore y sólo pueden consultarlos Administrador y Tesorero. Por seguridad, esta etapa continúa almacenando únicamente banco/alias y últimos 4 dígitos; no captures todavía CLABE o cuenta completa.</div>
     <div class="v3-kpi-grid">
       <div class="v3-kpi"><div class="v3-kpi-label">Activos</div><div class="v3-kpi-value" id="ben3-activos">0</div><div class="v3-kpi-sub">Beneficiarios del catálogo</div></div>
       <div class="v3-kpi"><div class="v3-kpi-label">Listos</div><div class="v3-kpi-value" id="ben3-listos">0</div><div class="v3-kpi-sub">Con datos mínimos completos</div></div>
@@ -6247,7 +6271,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
     </div>
     <div class="v3-panel">
       <div class="v3-panel-head">
-        <div><div class="v3-panel-title">Catálogo de beneficiarios</div><div class="v3-panel-sub">Esta información se incluye en los respaldos JSON de la app.</div></div>
+        <div><div class="v3-panel-title">Catálogo de beneficiarios</div><div class="v3-panel-sub">Sincronizado entre dispositivos autorizados</div><div class="v31b-syncline"><span class="v31b-syncdot"></span><span id="ben3-sync-label">Conectando con Firestore…</span></div></div>
         <div class="v3-inline">
           <select id="ben3-filter" class="v3-filter" onchange="renderBeneficiariosV3()"><option value="todos">Todos</option><option value="listo">Listos</option><option value="revisar">Por revisar</option><option value="pausado">Pausados</option></select>
           <button class="btn btn-gold btn-sm" onclick="openBeneficiarioModal()">+ Nuevo beneficiario</button>
@@ -6260,7 +6284,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
   <!-- ── DISPERSIÓN MISIONERA ── -->
   <main class="page" id="pg-dispersion">
     <div class="page-title">Dispersión misionera</div>
-    <div class="page-sub">Preparación, revisión y autorización simulada de apoyos</div>
+    <div class="page-sub">Preparación, revisión y autorización de lotes previos a la conexión bancaria</div>
     <div class="v3-om-tabs no-print">
   <button class="v3-om-tab" onclick="omGo('resumen')">Resumen</button>
   <button class="v3-om-tab" onclick="omGo('captura')">Captura</button>
@@ -6270,12 +6294,12 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
   <button class="v3-om-tab" onclick="omGo('beneficiarios')">Beneficiarios</button>
   <button class="v3-om-tab active" onclick="omGo('dispersion')">Dispersión</button>
 </div>
-    <div class="v3-security"><strong>Modo preparación:</strong> esta pantalla no envía dinero y no crea egresos contables. La conexión SPEI se habilitará sólo después de implementar autenticación, reglas privadas y backend seguro.</div>
+    <div class="v3-security"><strong>Flujo protegido:</strong> los lotes se guardan en Firestore con usuario preparador y autorización administrativa. Esta versión todavía no envía dinero ni contiene credenciales bancarias; la ejecución SPEI se conectará posteriormente desde un backend seguro.</div>
     <div class="v3-kpi-grid">
       <div class="v3-kpi"><div class="v3-kpi-label">Disponible del ciclo</div><div class="v3-kpi-value" id="disp3-disponible">$0.00</div><div class="v3-kpi-sub" id="disp3-ciclo">Sin ciclo seleccionado</div></div>
       <div class="v3-kpi"><div class="v3-kpi-label">Seleccionados</div><div class="v3-kpi-value" id="disp3-count">0</div><div class="v3-kpi-sub">Beneficiarios del lote</div></div>
       <div class="v3-kpi"><div class="v3-kpi-label">Total preparado</div><div class="v3-kpi-value" id="disp3-total">$0.00</div><div class="v3-kpi-sub">Sin transferencia real</div></div>
-      <div class="v3-kpi"><div class="v3-kpi-label">Lotes simulados</div><div class="v3-kpi-value" id="disp3-hist-count">0</div><div class="v3-kpi-sub">Historial operativo</div></div>
+      <div class="v3-kpi"><div class="v3-kpi-label">Lotes registrados</div><div class="v3-kpi-value" id="disp3-hist-count">0</div><div class="v3-kpi-sub">Pendientes y autorizados</div></div>
     </div>
     <div class="v3-disp-grid">
       <div class="v3-panel">
@@ -6296,7 +6320,7 @@ body.auth-locked #bottom-nav{visibility:hidden!important;pointer-events:none!imp
       </div>
     </div>
     <div class="v3-panel" style="margin-top:14px">
-      <div class="v3-panel-head"><div><div class="v3-panel-title">Historial de lotes</div><div class="v3-panel-sub">Simulaciones operativas; no equivalen a transferencias bancarias.</div></div></div>
+      <div class="v3-panel-head"><div><div class="v3-panel-title">Historial de lotes</div><div class="v3-panel-sub">Trazabilidad de preparación y autorización; todavía no equivale a una transferencia bancaria.</div></div></div>
       <div id="disp3-history"></div>
     </div>
   </main>
@@ -7074,7 +7098,7 @@ function promExportCSV() {
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, writeBatch, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const firebaseConfig = {
@@ -7099,6 +7123,118 @@ function promExportCSV() {
     const COL_OM_PROM = 'om_promesas';
     const COL_MAT_MANUAL = 'om_matriz_manual';
     const COL_USERS = 'usuarios';
+    const COL_BEN = 'om_beneficiarios';
+    const COL_DISP = 'om_dispersiones';
+    const COL_AUD = 'auditoria';
+
+
+
+    // ── DATOS SENSIBLES OPERATIVOS 3.1-B ──
+    window.fbAuditEvent = async function(action, entityType, entityId, summary, extra) {
+      try {
+        if (!auth.currentUser || !window.MAYORDOMIA_SESSION) return false;
+        await addDoc(collection(db, COL_AUD), {
+          action: String(action || '').slice(0,80),
+          entityType: String(entityType || '').slice(0,50),
+          entityId: String(entityId || '').slice(0,120),
+          summary: String(summary || '').slice(0,240),
+          uid: auth.currentUser.uid,
+          userName: String(window.MAYORDOMIA_SESSION.nombre || '').slice(0,120),
+          role: String(window.MAYORDOMIA_SESSION.rol || '').slice(0,30),
+          metadata: (extra && typeof extra === 'object') ? extra : {},
+          createdAt: serverTimestamp()
+        });
+        return true;
+      } catch(e) {
+        console.warn('[Mayordomía] Auditoría pendiente/no disponible', e);
+        return false;
+      }
+    };
+
+    window.fbSaveBeneficiary = async function(b, auditAction='beneficiario_actualizado') {
+      try {
+        if (!b || !b.id) return false;
+        const actor = auth.currentUser?.uid || null;
+        const rec = Object.assign({}, b, {
+          updatedAt: new Date().toISOString(),
+          updatedBy: actor,
+          updatedByName: window.MAYORDOMIA_SESSION?.nombre || ''
+        });
+        if (!rec.createdBy) rec.createdBy = actor;
+        if (!rec.createdByName) rec.createdByName = window.MAYORDOMIA_SESSION?.nombre || '';
+        await setDoc(doc(db, COL_BEN, rec.id), rec, {merge:true});
+        await window.fbAuditEvent(auditAction, 'beneficiario', rec.id, rec.nombre || rec.id, {
+          estatus: rec.estatus || '',
+          activo: rec.activo !== false,
+          ultimos4: rec.ultimos4 || ''
+        });
+        return true;
+      } catch(e) {
+        reportFirebaseError(e, 'Guardar beneficiario');
+        return false;
+      }
+    };
+
+    window.fbSaveDispersion = async function(d, auditAction='dispersion_actualizada') {
+      try {
+        if (!d || !d.id) return false;
+        const actor = auth.currentUser?.uid || null;
+        const rec = Object.assign({}, d, {
+          updatedAt: new Date().toISOString(),
+          updatedBy: actor,
+          updatedByName: window.MAYORDOMIA_SESSION?.nombre || ''
+        });
+        await setDoc(doc(db, COL_DISP, rec.id), rec, {merge:true});
+        await window.fbAuditEvent(auditAction, 'dispersion', rec.id, rec.folio || rec.id, {
+          estado: rec.estado || '',
+          total: Number(rec.total || 0),
+          cicloId: rec.cicloId || null,
+          beneficiarios: Array.isArray(rec.items) ? rec.items.length : 0
+        });
+        return true;
+      } catch(e) {
+        reportFirebaseError(e, 'Guardar dispersión');
+        return false;
+      }
+    };
+
+    function recordTimeValue(v) {
+      if (!v) return 0;
+      if (typeof v.toDate === 'function') return v.toDate().getTime();
+      const t = new Date(v).getTime();
+      return Number.isFinite(t) ? t : 0;
+    }
+
+    window.renderAuditoriaAdmin = async function() {
+      const host = document.getElementById('v31b-audit-list');
+      const panel = document.getElementById('v31b-audit-panel');
+      if (!host || !panel) return;
+      if (!window.mayordomiaHasPermission || !window.mayordomiaHasPermission('usersManage')) {
+        panel.style.display='none';
+        return;
+      }
+      panel.style.display='';
+      host.innerHTML='<div class="v3-empty">Cargando actividad…</div>';
+      try {
+        const snap = await getDocs(collection(db,COL_AUD));
+        const rows=[];
+        snap.forEach(d=>rows.push(Object.assign({id:d.id},d.data()||{})));
+        rows.sort((a,b)=>recordTimeValue(b.createdAt)-recordTimeValue(a.createdAt));
+        const iconFor = t => t==='beneficiario'?'contact-round':t==='dispersion'?'send':'shield-check';
+        host.innerHTML = rows.length ? rows.slice(0,30).map(r=>{
+          const dt = r.createdAt && typeof r.createdAt.toDate==='function' ? r.createdAt.toDate() : (r.createdAt ? new Date(r.createdAt) : null);
+          const when = dt && !isNaN(dt) ? dt.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}) : 'Pendiente';
+          return `<div class="v31b-audit-row">
+            <div class="v31b-audit-icon"><i data-lucide="${iconFor(r.entityType)}"></i></div>
+            <div><div class="v31b-audit-title">${escapeHtml(r.summary||r.action||'Actividad')}</div><div class="v31b-audit-meta">${escapeHtml(r.action||'')} · ${escapeHtml(r.userName||r.uid||'Usuario')} · ${escapeHtml(r.role||'')}</div></div>
+            <div class="v31b-audit-time">${escapeHtml(when)}</div>
+          </div>`;
+        }).join('') : '<div class="v3-empty">Aún no hay eventos en la bitácora.</div>';
+        if(window.lucide)lucide.createIcons();
+      } catch(e) {
+        host.innerHTML='<div class="v3-empty">No se pudo cargar la bitácora: '+escapeHtml(e.message||e.code||'error')+'</div>';
+      }
+    };
 
 
     // ── SEGURIDAD 3.1-A: sesión, roles y perfiles ──
@@ -7742,6 +7878,12 @@ function promExportCSV() {
           if (typeof omEnsureActiveCycleV3 === 'function') omEnsureActiveCycleV3();
           if (isPageActive('pg-om-resumen') && typeof renderOMResumenV3 === 'function') renderOMResumenV3();
           if (isPageActive('pg-om-promesas') && typeof renderOMPromesasPage === 'function') renderOMPromesasPage();
+        } else if (kind === 'beneficiarios') {
+          if (isPageActive('pg-beneficiarios') && typeof renderBeneficiariosV3 === 'function') renderBeneficiariosV3();
+          if (isPageActive('pg-dispersion') && typeof renderDispersionV3 === 'function') renderDispersionV3();
+          if (isPageActive('pg-om-resumen') && typeof renderOMResumenV3 === 'function') renderOMResumenV3();
+        } else if (kind === 'dispersiones') {
+          if (isPageActive('pg-dispersion') && typeof renderDispersionV3 === 'function') renderDispersionV3();
         }
       } catch(e) {
         console.warn('[Mayordomía] No se pudo refrescar la vista tras sincronizar', kind, e);
@@ -7841,6 +7983,100 @@ function promExportCSV() {
       realtimeUnsubs.push(unsub);
     }
 
+
+    async function syncSecureOperationalData() {
+      if (!window.mayordomiaHasPermission || !window.mayordomiaHasPermission('beneficiariesManage')) return;
+
+      const syncLabel = document.getElementById('ben3-sync-label');
+      if (syncLabel) syncLabel.textContent = 'Sincronizando beneficiarios…';
+
+      // 1) Migración local -> nube solamente si el registro no existe o es más reciente.
+      const benSnap1 = await getDocs(collection(db,COL_BEN));
+      const benCloud1 = [];
+      benSnap1.forEach(d => benCloud1.push(Object.assign({id:d.id},d.data()||{})));
+      const benCloudMap1 = new Map(benCloud1.filter(x=>x&&x.id).map(x=>[x.id,x]));
+      const benLocal = safeLocalJSON('ibfilm_om_beneficiarios_v1',[]);
+      const benWrites = [];
+
+      (Array.isArray(benLocal)?benLocal:[]).forEach(local=>{
+        if(!local||!local.id)return;
+        const remote=benCloudMap1.get(local.id);
+        const lt=new Date(local.updatedAt||local.createdAt||0).getTime();
+        const rt=remote?new Date(remote.updatedAt||remote.createdAt||0).getTime():0;
+        if(!remote || lt>rt){
+          const migrated=Object.assign({},remote||{},local,{
+            createdBy:local.createdBy||remote?.createdBy||auth.currentUser?.uid||null,
+            createdByName:local.createdByName||remote?.createdByName||window.MAYORDOMIA_SESSION?.nombre||'',
+            updatedBy:auth.currentUser?.uid||null,
+            updatedByName:window.MAYORDOMIA_SESSION?.nombre||'',
+            updatedAt:local.updatedAt||new Date().toISOString()
+          });
+          benWrites.push(window.fbSaveBeneficiary(migrated, remote?'beneficiario_sincronizado':'beneficiario_migrado'));
+        }
+      });
+      if (benWrites.length) await Promise.allSettled(benWrites);
+
+      // 2) Firestore pasa a ser la fuente compartida: releer y sustituir el cache local completo.
+      const benSnap2 = await getDocs(collection(db,COL_BEN));
+      const benCloud2 = [];
+      benSnap2.forEach(d => benCloud2.push(Object.assign({id:d.id},d.data()||{})));
+      localStorage.setItem('ibfilm_om_beneficiarios_v1',JSON.stringify(benCloud2));
+      refreshRealtimeUI('beneficiarios');
+      if (syncLabel) syncLabel.textContent = benCloud2.length + ' beneficiario(s) sincronizados';
+
+      // 3) Dispersiones con la misma estrategia.
+      const dispSnap1 = await getDocs(collection(db,COL_DISP));
+      const dispCloud1 = [];
+      dispSnap1.forEach(d => dispCloud1.push(Object.assign({id:d.id},d.data()||{})));
+      const dispCloudMap1 = new Map(dispCloud1.filter(x=>x&&x.id).map(x=>[x.id,x]));
+      const dispLocal = safeLocalJSON('ibfilm_om_dispersiones_v1',[]);
+      const dispWrites = [];
+
+      (Array.isArray(dispLocal)?dispLocal:[]).forEach(local=>{
+        if(!local||!local.id)return;
+        const remote=dispCloudMap1.get(local.id);
+        const lt=new Date(local.updatedAt||local.fecha||0).getTime();
+        const rt=remote?new Date(remote.updatedAt||remote.fecha||0).getTime():0;
+        if(!remote || lt>rt){
+          const migrated=Object.assign({},remote||{},local,{
+            estado:local.estado||remote?.estado||'simulada',
+            preparedBy:local.preparedBy||remote?.preparedBy||auth.currentUser?.uid||null,
+            preparedByName:local.preparedByName||remote?.preparedByName||window.MAYORDOMIA_SESSION?.nombre||'',
+            updatedAt:local.updatedAt||local.fecha||new Date().toISOString()
+          });
+          dispWrites.push(window.fbSaveDispersion(migrated, remote?'dispersion_sincronizada':'dispersion_migrada'));
+        }
+      });
+      if (dispWrites.length) await Promise.allSettled(dispWrites);
+
+      const dispSnap2 = await getDocs(collection(db,COL_DISP));
+      const dispCloud2 = [];
+      dispSnap2.forEach(d => dispCloud2.push(Object.assign({id:d.id},d.data()||{})));
+      dispCloud2.sort((a,b)=>new Date(b.fecha||b.updatedAt||0)-new Date(a.fecha||a.updatedAt||0));
+      localStorage.setItem('ibfilm_om_dispersiones_v1',JSON.stringify(dispCloud2));
+      refreshRealtimeUI('dispersiones');
+    }
+
+    function startSecureRealtime(collectionName, storageKey, uiKind) {
+      return onSnapshot(collection(db, collectionName), snap => {
+        const cloud = snap.docs.map(d => Object.assign({id:d.id}, d.data() || {}));
+        localStorage.setItem(storageKey, JSON.stringify(cloud));
+        if (uiKind === 'beneficiarios') {
+          const label = document.getElementById('ben3-sync-label');
+          if (label) label.textContent = cloud.length + ' beneficiario(s) sincronizados';
+        }
+        refreshRealtimeUI(uiKind);
+        syncChannel(collectionName, true);
+      }, err => {
+        if (uiKind === 'beneficiarios') {
+          const label = document.getElementById('ben3-sync-label');
+          if (label) label.textContent = 'Error de sincronización';
+        }
+        syncChannel(collectionName, false, err);
+        reportFirebaseError(err, 'Sincronización ' + collectionName);
+      });
+    }
+
     function startRealtimeSync() {
       if (window.__ibfilmRealtimeStarted) return;
       window.__ibfilmRealtimeStarted = true;
@@ -7851,6 +8087,10 @@ function promExportCSV() {
       startArrayRealtime(COL_OM,  'ibfilm_om_ciclos_v1', null, 'om_ciclos');
       startOMPromisesRealtime();
       startMatManualRealtime();
+      if (window.mayordomiaHasPermission && window.mayordomiaHasPermission('beneficiariesManage')) {
+        startSecureRealtime(COL_BEN, 'ibfilm_om_beneficiarios_v1', 'beneficiarios');
+        startSecureRealtime(COL_DISP, 'ibfilm_om_dispersiones_v1', 'dispersiones');
+      }
     }
 
     window.fbStartRealtimeSync = startRealtimeSync;
@@ -8000,6 +8240,8 @@ function promExportCSV() {
         const mergedMat = matMergeAll(matLocal, matCloud);
         localStorage.setItem('ibfilm_matriz_manual_v1', JSON.stringify(mergedMat));
 
+        await syncSecureOperationalData();
+
         setSyncStatus(true, 'Todo sincronizado');
         // Refrescar la vista actual
         if (typeof renderDash === 'function') renderDash();
@@ -8078,10 +8320,10 @@ function promExportCSV() {
   <div class="modal">
     <div class="modal-handle"></div>
     <h3>Revisar lote de dispersión</h3>
-    <div class="notice" style="margin-bottom:12px;">Esta autorización es una simulación operativa. No mueve dinero, no llama a ningún banco y no crea un egreso contable.</div>
+    <div class="notice" style="margin-bottom:12px;">Este paso crea un lote pendiente de autorización. No mueve dinero, no llama a ningún banco y no crea un egreso contable.</div>
     <div id="disp3-review-lines" class="v3-review-lines"></div>
     <div id="disp3-review-validation"></div>
-    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('m-dispersion-review')">Volver</button><button class="btn btn-gold" id="disp3-authorize-btn" onclick="dispAutorizarSimulacion()">Autorizar simulación</button></div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('m-dispersion-review')">Volver</button><button class="btn btn-gold" id="disp3-authorize-btn" onclick="dispCrearLotePendiente()">Crear lote pendiente</button></div>
   </div>
 </div>
 
@@ -8629,12 +8871,18 @@ function omGo(section) {
   if (section === 'beneficiarios') {
     omShowDirectPageV3('pg-beneficiarios', 'beneficiarios');
     renderBeneficiariosV3();
+    if(window.MAYORDOMIA_SECURITY_READY && typeof syncSecureOperationalData==='function'){
+      syncSecureOperationalData().catch(e=>reportFirebaseError(e,'Actualizar beneficiarios'));
+    }
     return;
   }
   if (section === 'dispersion') {
     if (!ciclo) { toast('Primero crea un ciclo misionero.','warn'); omGo('ciclos'); return; }
     omShowDirectPageV3('pg-dispersion', 'dispersion');
     renderDispersionV3();
+    if(window.MAYORDOMIA_SECURITY_READY && typeof syncSecureOperationalData==='function'){
+      syncSecureOperationalData().catch(e=>reportFirebaseError(e,'Actualizar dispersión'));
+    }
   }
 }
 
@@ -8736,7 +8984,7 @@ function renderBeneficiariosV3(){
   if(filter==='pausado')arr=arr.filter(b=>b.estatus==='pausado');
   arr.sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
   const host=document.getElementById('ben3-grid');if(!host)return;
-  host.innerHTML=arr.length?arr.map(b=>'<div class="v3-ben-card"><div class="v3-ben-card-top"><div><div class="v3-ben-name">'+omHtml(b.nombre)+'</div><div class="v3-ben-meta">'+omHtml([b.proyecto,b.pais].filter(Boolean).join(' · ')||'Sin proyecto / ubicación')+'</div></div>'+beneficiarioChipV3(b)+'</div><div class="v3-ben-amount">'+fmt(b.monto||0)+'</div><div class="v3-ben-meta">'+omHtml(b.frecuencia||'Mensual')+'</div><div class="v3-ben-boxes"><div class="v3-ben-box"><span>Banco / alias</span><b>'+omHtml(b.banco||'Pendiente')+'</b></div><div class="v3-ben-box"><span>Cuenta visible</span><b>'+(b.ultimos4?'•••• '+omHtml(b.ultimos4):'Pendiente')+'</b></div></div>'+(b.notas?'<div class="notice" style="margin-top:9px">'+omHtml(b.notas)+'</div>':'')+'<div class="v3-ben-actions"><button class="btn btn-ghost btn-xs" onclick="openBeneficiarioModal(\''+omJs(b.id)+'\')">Editar</button><button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="archivarBeneficiarioV3(\''+omJs(b.id)+'\')">Archivar</button></div></div>').join(''):'<div class="v3-empty" style="grid-column:1/-1">No hay beneficiarios en este filtro.</div>';
+  host.innerHTML=arr.length?arr.map(b=>'<div class="v3-ben-card"><div class="v3-ben-card-top"><div><div class="v3-ben-name">'+omHtml(b.nombre)+'</div><div class="v3-ben-meta">'+omHtml([b.proyecto,b.pais].filter(Boolean).join(' · ')||'Sin proyecto / ubicación')+'</div></div>'+beneficiarioChipV3(b)+'</div><div class="v3-ben-amount">'+fmt(b.monto||0)+'</div><div class="v3-ben-meta">'+omHtml(b.frecuencia||'Mensual')+'</div><div class="v3-ben-boxes"><div class="v3-ben-box"><span>Banco / alias</span><b>'+omHtml(b.banco||'Pendiente')+'</b></div><div class="v3-ben-box"><span>Cuenta visible</span><b>'+(b.ultimos4?'•••• '+omHtml(b.ultimos4):'Pendiente')+'</b></div></div>'+(b.notas?'<div class="notice" style="margin-top:9px">'+omHtml(b.notas)+'</div>':'')+(b.updatedByName?'<div class="v3-ben-meta" style="margin-top:8px">Actualizado por '+omHtml(b.updatedByName)+'</div>':'')+'<div class="v3-ben-actions"><button class="btn btn-ghost btn-xs" onclick="openBeneficiarioModal(\''+omJs(b.id)+'\')">Editar</button><button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="archivarBeneficiarioV3(\''+omJs(b.id)+'\')">Archivar</button></div></div>').join(''):'<div class="v3-empty" style="grid-column:1/-1">No hay beneficiarios en este filtro.</div>';
   if(typeof renderOMResumenV3==='function') {
     const el=document.getElementById('om3-beneficiarios'); if(el) el.textContent=activos.length;
     const li=document.getElementById('om3-benef-listos'); if(li) li.textContent=listos.length+' listos para dispersión';
@@ -8757,28 +9005,40 @@ function openBeneficiarioModal(id){
   document.getElementById('ben3-notes').value=b?.notas||'';
   openModal('m-beneficiario');
 }
-function guardarBeneficiarioV3(){
+async function guardarBeneficiarioV3(){
+  if(window.MAYORDOMIA_SECURITY_READY && (!window.mayordomiaHasPermission || !window.mayordomiaHasPermission('beneficiariesManage'))){toast('Tu rol no puede modificar beneficiarios.','warn');return}
   const nombre=document.getElementById('ben3-name').value.trim();
   const monto=parseFloat(document.getElementById('ben3-amount').value||0)||0;
   const last4=String(document.getElementById('ben3-last4').value||'').replace(/\D/g,'').slice(-4);
   if(!nombre){toast('Escribe el nombre del beneficiario.','warn');return}
   if(document.getElementById('ben3-last4').value.trim() && last4.length!==4){toast('Escribe únicamente los últimos 4 dígitos.','warn');return}
   const arr=loadBeneficiariosV3(),edit=document.getElementById('ben3-edit-id').value,old=arr.find(x=>x.id===edit),now=new Date().toISOString();
+  const actor=window.MAYORDOMIA_SESSION||{};
   const b=Object.assign({},old||{},{
     id:edit||('ben_'+uid()),nombre,proyecto:document.getElementById('ben3-project').value.trim(),pais:document.getElementById('ben3-country').value.trim(),
     monto,frecuencia:document.getElementById('ben3-frequency').value,banco:document.getElementById('ben3-bank').value.trim(),ultimos4:last4,
     estatus:document.getElementById('ben3-status').value,notas:document.getElementById('ben3-notes').value.trim(),activo:true,
-    createdAt:old?.createdAt||now,updatedAt:now
+    createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.uid||null,createdByName:old?.createdByName||actor.nombre||'',
+    updatedAt:now,updatedBy:actor.uid||null,updatedByName:actor.nombre||''
   });
   if(b.estatus==='listo'&&!beneficiarioListoV3(b))b.estatus='revisar';
   const idx=arr.findIndex(x=>x.id===b.id);if(idx>=0)arr[idx]=b;else arr.push(b);
-  saveBeneficiariosV3(arr);closeModal('m-beneficiario');renderBeneficiariosV3();renderDispersionV3();renderOMResumenV3();toast('Beneficiario guardado');
+  saveBeneficiariosV3(arr);
+  const ok = typeof window.fbSaveBeneficiary==='function' ? await window.fbSaveBeneficiary(b,old?'beneficiario_actualizado':'beneficiario_creado') : false;
+  closeModal('m-beneficiario');renderBeneficiariosV3();renderDispersionV3();renderOMResumenV3();
+  toast(ok?'Beneficiario guardado y sincronizado':'Beneficiario guardado localmente; falta sincronizar','warn');
 }
-function archivarBeneficiarioV3(id){
+async function archivarBeneficiarioV3(id){
+  if(window.MAYORDOMIA_SECURITY_READY && (!window.mayordomiaHasPermission || !window.mayordomiaHasPermission('beneficiariesManage'))){toast('Tu rol no puede modificar beneficiarios.','warn');return}
   const arr=loadBeneficiariosV3(),b=arr.find(x=>x.id===id);if(!b)return;
   if(!confirm('¿Archivar a "'+b.nombre+'"? No se borrarán los lotes históricos.'))return;
-  b.activo=false;b.updatedAt=new Date().toISOString();saveBeneficiariosV3(arr);delete disp3Selected[id];renderBeneficiariosV3();renderDispersionV3();renderOMResumenV3();toast('Beneficiario archivado');
+  b.activo=false;b.updatedAt=new Date().toISOString();b.updatedBy=window.MAYORDOMIA_SESSION?.uid||null;b.updatedByName=window.MAYORDOMIA_SESSION?.nombre||'';
+  saveBeneficiariosV3(arr);
+  const ok=typeof window.fbSaveBeneficiary==='function'?await window.fbSaveBeneficiary(b,'beneficiario_archivado'):false;
+  delete disp3Selected[id];renderBeneficiariosV3();renderDispersionV3();renderOMResumenV3();
+  toast(ok?'Beneficiario archivado y sincronizado':'Beneficiario archivado localmente; falta sincronizar','warn');
 }
+
 
 /* ══════════════════════════════════════════════════════
    DISPERSIÓN — PREPARACIÓN Y SIMULACIÓN
@@ -8788,7 +9048,8 @@ function saveDispersionesV3(d){localStorage.setItem(K_OM_DISP_V3,JSON.stringify(
 function omDisponibleCicloV3(){
   const ciclo=omEnsureActiveCycleV3();if(!ciclo)return 0;
   const ingresos=omMissionMovsV3(ciclo).reduce((s,m)=>s+(parseFloat(m.monto||0)||0),0);
-  const lotes=loadDispersionesV3().filter(d=>d&&d.cicloId===ciclo.id&&d.estado==='registrada').reduce((s,d)=>s+(parseFloat(d.total||0)||0),0);
+  const reservados=new Set(['pendiente_autorizacion','autorizada','en_proceso','completada']);
+  const lotes=loadDispersionesV3().filter(d=>d&&d.cicloId===ciclo.id&&reservados.has(d.estado)).reduce((s,d)=>s+(parseFloat(d.total||0)||0),0);
   return Math.max(0,ingresos-lotes);
 }
 function dispItemsV3(){
@@ -8800,6 +9061,24 @@ function dispValidationV3(){
   const invalid=items.filter(x=>!beneficiarioListoV3(x.b)||x.monto<=0);
   const acc=items.map(x=>x.b.ultimos4).filter(Boolean);const dup=acc.filter((x,i,a)=>a.indexOf(x)!==i);
   return {items,available,total,invalid,dup,ok:items.length>0&&invalid.length===0&&dup.length===0&&total>0&&total<=available};
+}
+function dispStatusV3(estado){
+  const m={
+    pendiente_autorizacion:['Pendiente de autorización','pending'],
+    autorizada:['Autorizada','authorized'],
+    en_proceso:['En proceso','process'],
+    completada:['Completada','authorized'],
+    rechazada:['Rechazada','rejected'],
+    cancelada:['Cancelada','rejected'],
+    simulada:['Histórico simulado','legacy']
+  };
+  return m[estado]||[String(estado||'Borrador').replaceAll('_',' '),'legacy'];
+}
+function dispHistoryActionsV3(d){
+  if(!d||d.estado!=='pendiente_autorizacion')return '';
+  const canAuth=window.MAYORDOMIA_SECURITY_READY&&window.mayordomiaHasPermission&&window.mayordomiaHasPermission('dispersionAuthorize');
+  if(!canAuth)return '<div class="v31b-history-actions"><span class="v3-cycle-meta">Esperando Administrador</span></div>';
+  return '<div class="v31b-history-actions"><button class="v31b-mini-btn danger" onclick="dispRechazarLote(\''+omJs(d.id)+'\')">Rechazar</button><button class="v31b-mini-btn primary" onclick="dispAutorizarLote(\''+omJs(d.id)+'\')">Autorizar</button></div>';
 }
 function renderDispersionV3(){
   const ciclo=omEnsureActiveCycleV3(),val=dispValidationV3(),hist=loadDispersionesV3();
@@ -8820,7 +9099,12 @@ function renderDispersionV3(){
     '<div class="v3-validation '+(val.dup.length?'bad':'ok')+'">'+(val.dup.length?'Revisa cuentas visibles repetidas':'Sin cuentas visibles duplicadas')+'</div>'+
     '<div class="v3-validation '+(val.total>val.available?'bad':'ok')+'">'+(val.total>val.available?'El lote excede el disponible por '+fmt(val.total-val.available):'El total no excede el disponible del ciclo')+'</div>';
   const hh=document.getElementById('disp3-history');
-  if(hh)hh.innerHTML=hist.length?hist.slice(0,12).map(d=>'<div class="v3-disp-history-row"><div><strong>'+omHtml(d.folio||d.id)+'</strong><div class="v3-cycle-meta">'+new Date(d.fecha).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})+' · '+omHtml(d.cicloNombre||'Sin ciclo')+' · '+((d.items||[]).length)+' beneficiario(s)</div></div><div style="text-align:right"><strong>'+fmt(d.total)+'</strong><div style="margin-top:4px"><span class="v3-chip warn">'+omHtml(d.estado||'simulada')+'</span></div></div></div>').join(''):'<div class="v3-empty">Aún no hay lotes preparados.</div>';
+  if(hh)hh.innerHTML=hist.length?hist.slice().sort((a,b)=>new Date(b.fecha||b.updatedAt||0)-new Date(a.fecha||a.updatedAt||0)).slice(0,20).map(d=>{
+    const st=dispStatusV3(d.estado);
+    const prep=d.preparedByName||d.updatedByName||'';
+    const auth=d.authorizedByName||'';
+    return '<div class="v3-disp-history-row"><div><strong>'+omHtml(d.folio||d.id)+'</strong><div class="v3-cycle-meta">'+new Date(d.fecha||d.updatedAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})+' · '+omHtml(d.cicloNombre||'Sin ciclo')+' · '+((d.items||[]).length)+' beneficiario(s)</div>'+(prep?'<div class="v3-cycle-meta">Preparó: '+omHtml(prep)+(auth?' · Autorizó: '+omHtml(auth):'')+'</div>':'')+'</div><div style="text-align:right"><strong>'+fmt(d.total)+'</strong><div style="margin-top:4px"><span class="v31b-status '+st[1]+'">'+omHtml(st[0])+'</span></div>'+dispHistoryActionsV3(d)+'</div></div>';
+  }).join(''):'<div class="v3-empty">Aún no hay lotes preparados.</div>';
 }
 function dispToggle(id,checked){const b=loadBeneficiariosV3().find(x=>x.id===id);if(!b||!beneficiarioListoV3(b))return;if(checked)disp3Selected[id]=parseFloat(b.monto||0)||0;else delete disp3Selected[id];renderDispersionV3()}
 function dispMonto(id,v){if(Object.prototype.hasOwnProperty.call(disp3Selected,id))disp3Selected[id]=Math.max(0,parseFloat(v||0)||0);renderDispersionV3()}
@@ -8834,24 +9118,49 @@ function dispRevisar(){
   lines.innerHTML='<div class="v3-review-line"><span>Ciclo</span><strong>'+omHtml(c?.nombre||'—')+'</strong></div><div class="v3-review-line"><span>Disponible</span><strong>'+fmt(v.available)+'</strong></div>'+
     v.items.map(x=>'<div class="v3-review-line"><span>'+omHtml(x.b.nombre)+' · '+(x.b.ultimos4?'•••• '+omHtml(x.b.ultimos4):'sin cuenta')+'</span><strong>'+fmt(x.monto)+'</strong></div>').join('')+
     '<div class="v3-review-line total"><span>Total preparado</span><span>'+fmt(v.total)+'</span></div>';
-  document.getElementById('disp3-review-validation').innerHTML=v.ok?'<div class="v3-validation ok">Validación operativa superada. Sigue siendo una simulación sin transferencia bancaria.</div>':'<div class="v3-validation bad">El lote tiene observaciones. Corrígelas antes de autorizar la simulación.</div>';
+  document.getElementById('disp3-review-validation').innerHTML=v.ok?'<div class="v3-validation ok">Validación operativa superada. El siguiente paso registrará un lote pendiente; todavía no habrá transferencia bancaria.</div>':'<div class="v3-validation bad">El lote tiene observaciones. Corrígelas antes de enviarlo a autorización.</div>';
   const btn=document.getElementById('disp3-authorize-btn');
-  const canAuthorize = !window.MAYORDOMIA_SECURITY_READY || (typeof window.mayordomiaHasPermission==='function' && window.mayordomiaHasPermission('dispersionAuthorize'));
-  btn.disabled=!v.ok || !canAuthorize;
-  btn.style.opacity=(v.ok&&canAuthorize)?'1':'.45';
-  btn.textContent=canAuthorize?'Autorizar simulación':'Requiere Administrador';
+  btn.disabled=!v.ok;
+  btn.style.opacity=v.ok?'1':'.45';
+  const isAdmin=window.MAYORDOMIA_SECURITY_READY&&window.mayordomiaHasPermission&&window.mayordomiaHasPermission('dispersionAuthorize');
+  btn.textContent=isAdmin?'Crear lote para autorizar':'Enviar a autorización';
   openModal('m-dispersion-review');
 }
-function dispAutorizarSimulacion(){
-  if (window.MAYORDOMIA_SECURITY_READY && typeof window.mayordomiaHasPermission==='function' && !window.mayordomiaHasPermission('dispersionAuthorize')) {
-    toast('La autorización final requiere rol Administrador.','warn');
-    return;
-  }
+async function dispCrearLotePendiente(){
   const v=dispValidationV3(),c=omEnsureActiveCycleV3();if(!v.ok){toast('El lote no supera las validaciones.','warn');return}
-  const all=loadDispersionesV3(),n=new Date();const folio='SIM-'+n.getFullYear()+String(n.getMonth()+1).padStart(2,'0')+String(n.getDate()).padStart(2,'0')+'-'+String(all.length+1).padStart(3,'0');
-  all.unshift({id:'disp_'+uid(),folio,fecha:n.toISOString(),cicloId:c?.id||null,cicloNombre:c?.nombre||'',total:v.total,estado:'simulada',items:v.items.map(x=>({beneficiarioId:x.b.id,nombre:x.b.nombre,monto:x.monto,banco:x.b.banco||'',ultimos4:x.b.ultimos4||''}))});
-  saveDispersionesV3(all);localStorage.removeItem(K_OM_DISP_DRAFT_V3);disp3Selected={};closeModal('m-dispersion-review');renderDispersionV3();toast('Simulación autorizada · '+folio+' · No se movió dinero real.');
+  const all=loadDispersionesV3(),n=new Date();const folio='DSP-'+n.getFullYear()+String(n.getMonth()+1).padStart(2,'0')+String(n.getDate()).padStart(2,'0')+'-'+String(all.length+1).padStart(3,'0');
+  const actor=window.MAYORDOMIA_SESSION||{};
+  const rec={id:'disp_'+uid(),folio,fecha:n.toISOString(),cicloId:c?.id||null,cicloNombre:c?.nombre||'',total:v.total,estado:'pendiente_autorizacion',
+    preparedBy:actor.uid||null,preparedByName:actor.nombre||'',preparedAt:n.toISOString(),updatedAt:n.toISOString(),
+    items:v.items.map(x=>({beneficiarioId:x.b.id,nombre:x.b.nombre,monto:x.monto,banco:x.b.banco||'',ultimos4:x.b.ultimos4||''}))};
+  all.unshift(rec);saveDispersionesV3(all);
+  const ok=typeof window.fbSaveDispersion==='function'?await window.fbSaveDispersion(rec,'dispersion_preparada'):false;
+  localStorage.removeItem(K_OM_DISP_DRAFT_V3);disp3Selected={};closeModal('m-dispersion-review');renderDispersionV3();
+  toast(ok?'Lote '+folio+' enviado a autorización':'Lote guardado localmente; falta sincronizar','warn');
 }
+async function dispAutorizarLote(id){
+  if(!window.mayordomiaHasPermission||!window.mayordomiaHasPermission('dispersionAuthorize')){toast('La autorización final requiere rol Administrador.','warn');return}
+  const all=loadDispersionesV3(),d=all.find(x=>x.id===id);if(!d||d.estado!=='pendiente_autorizacion')return;
+  if(!confirm('¿Autorizar el lote '+(d.folio||d.id)+' por '+fmt(d.total)+'? Esta acción todavía NO envía dinero.'))return;
+  const actor=window.MAYORDOMIA_SESSION||{},now=new Date().toISOString();
+  d.estado='autorizada';d.authorizedBy=actor.uid||null;d.authorizedByName=actor.nombre||'';d.authorizedAt=now;d.updatedAt=now;
+  saveDispersionesV3(all);
+  const ok=typeof window.fbSaveDispersion==='function'?await window.fbSaveDispersion(d,'dispersion_autorizada'):false;
+  renderDispersionV3();toast(ok?'Lote autorizado. Queda listo para la futura conexión bancaria.':'Autorización local pendiente de sincronizar','warn');
+}
+async function dispRechazarLote(id){
+  if(!window.mayordomiaHasPermission||!window.mayordomiaHasPermission('dispersionAuthorize')){toast('Sólo Administrador puede rechazar lotes.','warn');return}
+  const all=loadDispersionesV3(),d=all.find(x=>x.id===id);if(!d||d.estado!=='pendiente_autorizacion')return;
+  if(!confirm('¿Rechazar el lote '+(d.folio||d.id)+'?'))return;
+  const actor=window.MAYORDOMIA_SESSION||{},now=new Date().toISOString();
+  d.estado='rechazada';d.rejectedBy=actor.uid||null;d.rejectedByName=actor.nombre||'';d.rejectedAt=now;d.updatedAt=now;
+  saveDispersionesV3(all);
+  const ok=typeof window.fbSaveDispersion==='function'?await window.fbSaveDispersion(d,'dispersion_rechazada'):false;
+  renderDispersionV3();toast(ok?'Lote rechazado':'Rechazo local pendiente de sincronizar','warn');
+}
+// Alias de compatibilidad con 3.1-A.
+function dispAutorizarSimulacion(){ return dispCrearLotePendiente(); }
+
 
 /* Firebase define fbSaveOM/fbDelOM en el módulo principal. */
 if (typeof window.fbSaveOM !== 'function') window.fbSaveOM = null;
